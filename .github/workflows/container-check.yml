@@ -16,13 +16,18 @@ jobs:
         with:
           version: '0.12.24'
           enable-cache: true
-      - name: Check Python
+      - name: Lint and type-check Python
         run: |
           uv sync --locked
           uv run --locked python -m ruff check .
           uv run --locked python -m ruff format --check .
           uv run --locked python -m mypy src/mod1_auth examples/validate_token.py
-          uv run --locked python -m pytest -q
+      - name: Run automated tests
+        run: uv run --locked python -m pytest -q
+      - name: Audit locked dependencies
+        run: |
+          uv export --locked --all-groups --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements-audit.txt" --quiet
+          uvx --from pip-audit==2.10.1 pip-audit --strict --disable-pip --require-hashes --requirement "$RUNNER_TEMP/requirements-audit.txt"
       - name: Build and smoke with synthetic SQLite
         shell: bash
         run: |
