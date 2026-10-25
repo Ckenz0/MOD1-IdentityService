@@ -1,11 +1,13 @@
 name: Publish API to Azure
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       deploy_revision:
         description: 'Update an existing Container App after publishing the image'
         type: boolean
-        default: false
+        default: true
 permissions:
   contents: read
 concurrency:
@@ -33,13 +35,18 @@ jobs:
         with:
           version: '0.12.24'
           enable-cache: true
-      - name: Check Python
+      - name: Lint and type-check Python
         run: |
           uv sync --locked
           uv run --locked python -m ruff check .
           uv run --locked python -m ruff format --check .
           uv run --locked python -m mypy src/mod1_auth examples/validate_token.py
-          uv run --locked python -m pytest -q
+      - name: Run automated tests
+        run: uv run --locked python -m pytest -q
+      - name: Audit locked dependencies
+        run: |
+          uv export --locked --all-groups --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements-audit.txt" --quiet
+          uvx --from pip-audit==2.10.1 pip-audit --strict --disable-pip --require-hashes --requirement "$RUNNER_TEMP/requirements-audit.txt"
       - name: Build and smoke with synthetic SQLite
         shell: bash
         run: |
@@ -83,7 +90,7 @@ jobs:
           printf 'reference=%s\n' "$reference" >> "$GITHUB_OUTPUT"
           printf 'Image: %s\nCode: %s\n' "$reference" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
       - name: Deploy and wait for the new revision
-        if: inputs.deploy_revision
+        if: github.event_name == 'push' || inputs.deploy_revision
         env:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
         shell: bash
