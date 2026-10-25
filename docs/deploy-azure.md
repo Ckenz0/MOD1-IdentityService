@@ -71,7 +71,7 @@ Guarde as quatro URIs versionadas retornadas, para a fase de APIs. Não coloque 
 
 ## 4. Configurar GitHub Environments e OIDC
 
-Em cada repositório, crie um GitHub Environment chamado `demo`, em Settings → Environments. Os workflows cloud são manuais e só executam em `main`; as mudanças de backlog/frontend integrado devem passar pelo fluxo normal de revisão/integração antes de virarem fonte de release.
+Em cada repositório, crie um GitHub Environment chamado `demo`, em Settings → Environments. O deploy das APIs executa automaticamente em cada push/merge em `main`, após as verificações. O workflow de infraestrutura e o do frontend continuam manuais; mudanças devem passar pelo fluxo normal de revisão/integração antes de virarem fonte de release.
 
 Para cada repositório de API, configure uma identidade de CI/deploy com credencial federada do GitHub. Em Microsoft Entra ID → App registrations → sua aplicação → Certificates & secrets → Federated credentials → GitHub Actions, selecione o repositório e o environment `demo`. O subject deve ser `repo:ORGANIZACAO/REPOSITORIO:environment:demo` e a audience `api://AzureADTokenExchange`. Use uma credencial federada por repositório. Não crie um client secret.
 
@@ -88,7 +88,7 @@ Variáveis de Environment nas três APIs:
 | ACR_NAME | Output registryName |
 | AZURE_CONTAINER_APP | PREFIX-auth, PREFIX-projects ou PREFIX-backlog |
 
-Não há senha Azure ou ACR nos workflows. PRs executam somente testes/build/smoke, sem login cloud nem acesso aos segredos do ambiente.
+Não há senha Azure ou ACR nos workflows. PRs executam lint, tipos, testes, auditoria de dependências e build/smoke, sem login cloud nem acesso aos segredos do ambiente.
 
 Para usar o workflow `Azure infrastructure` em vez dos comandos locais, crie um segundo Environment no repositório de identidade, chamado `demo-infrastructure`. Configure ali `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` e `AZURE_RESOURCE_GROUP` com a identidade de infraestrutura, separada da publicadora da API. Sua credencial federada deve usar o subject `repo:ORGANIZACAO/REPOSITORIO:environment:demo-infrastructure`. Somente essa identidade administrativa recebe as permissões de provisionamento/RBAC.
 
@@ -98,7 +98,7 @@ No Environment `demo-infrastructure`, configure `AZURE_BOOTSTRAP_PARAMETERS_JSON
 
 No GitHub de cada API, abra Actions → Publish API to Azure → Run workflow → branch `main`. Na primeira publicação, deixe `deploy_revision` desmarcado, pois as Container Apps ainda não existem.
 
-Cada workflow executa lint, tipos, testes, build Docker e smoke HTTP com SQLite/chave sintéticos. Só depois faz login OIDC e publica a mesma imagem testada. Os repositórios no ACR são `identity`, `projects` e `backlog`; a tag é o SHA do código. O resumo do workflow informa a referência imutável com `@sha256:...`. Guarde as três referências.
+Cada workflow executa lint, tipos, testes, auditoria das dependências fixadas no `uv.lock` (incluindo desenvolvimento), build Docker e smoke HTTP com SQLite/chave sintéticos. O `pip-audit` usa o export com hashes e falha se encontrar vulnerabilidades conhecidas ou não conseguir concluir a coleta. Só depois faz login OIDC e publica a mesma imagem testada. Os repositórios no ACR são `identity`, `projects` e `backlog`; a tag é o SHA do código. O resumo do workflow informa a referência imutável com `@sha256:...`. Guarde as três referências.
 
 Se Docker não funcionar localmente, o CI é o local da validação das imagens; não considere o build/smoke aprovado antes do resultado real desse job.
 
@@ -157,7 +157,13 @@ Registre evidências sanitizadas em documentação do produto: data, SHA, versã
 
 ## 9. Atualizações e rollback
 
-Depois da primeira implantação, execute Publish API to Azure com `deploy_revision=true` para atualizar somente a API correspondente. O workflow espera a revisão nova ficar pronta; a resposta de uma revisão antiga não basta. Atualize também as referências guardadas para que uma reaplicação Bicep não volte a uma imagem antiga por acidente.
+Depois da primeira implantação, cada push/merge em `main` dispara Publish API to Azure e atualiza automaticamente a API correspondente, após lint, testes, auditoria e build/smoke. O workflow espera a revisão nova ficar pronta; a resposta de uma revisão antiga não basta. A execução manual em `main` continua disponível, com `deploy_revision=true` por padrão; desmarque a opção somente quando quiser publicar a imagem sem atualizar o app. Atualize também as referências guardadas para que uma reaplicação Bicep não volte a uma imagem antiga por acidente.
+
+### CI/CD da atividade P8
+
+PRs executam [API and container checks](https://github.com/Ckenz0/MOD1-IdentityService/actions/workflows/container-check.yml). O fluxo completo de lint → testes → auditoria de dependências → build/smoke → publicação e deploy automático está em [Publish API to Azure](https://github.com/Ckenz0/MOD1-IdentityService/actions/workflows/azure-deploy.yml). Para comprovar a automação, abra uma execução bem-sucedida cujo evento seja `push`.
+
+O [Dependabot](../.github/dependabot.yml) verifica semanalmente dependências Python (`uv`, incluindo `uv.lock`) e GitHub Actions e abre PRs para atualizações. Esses PRs passam pelo mesmo CI; a configuração não faz merge automático. A auditoria do `pip-audit` é uma verificação adicional que bloqueia o deploy quando encontra vulnerabilidades conhecidas. Referências: [uv com Dependabot](https://docs.astral.sh/uv/guides/integration/dependabot/) e [pip-audit](https://github.com/pypa/pip-audit).
 
 Para rollback, use o digest anterior registrado:
 
