@@ -1,5 +1,11 @@
 # MVP local com Neon PostgreSQL
 
+## Atualização local 0.3.0
+
+Preparar a tabela profiles explicitamente com `init` administrativo e conceder
+SELECT/INSERT/UPDATE à role runtime existente. [Contrato e grants](profile.md).
+Startup e readiness não substituem essa preparação. Nada foi aplicado ao Neon.
+
 A API e o frontend executam no computador; as contas ficam no Neon, no schema `mod1_identity`. O banco armazena hashes Argon2 de senha. A autenticação continua sendo responsabilidade desta API, com JWT RS256; não utiliza um serviço externo de login.
 
 ## Conexão e preparação

@@ -43,7 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=configuration.cors_origins,
-            allow_methods=["GET", "POST"],
+            allow_methods=["GET", "POST", "PATCH"],
             allow_headers=["Authorization", "Content-Type"],
         )
 
@@ -53,7 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> Response:
-        if request.url.path not in ("/auth/register", "/auth/password"):
+        if request.url.path not in ("/auth/register", "/auth/password", "/auth/profile"):
             return await request_validation_exception_handler(request, exc)
         # FastAPI's default validation response includes input values, including passwords.
         errors = [
@@ -65,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.middleware("http")
     async def password_no_store(request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
-        if request.url.path in ("/auth/password", "/auth/password-policy"):
+        if request.url.path in ("/auth/password", "/auth/password-policy", "/auth/profile"):
             response.headers["Cache-Control"] = "no-store"
         return response
 

@@ -1,6 +1,14 @@
 # Autenticação
 
-API Python/FastAPI para contas individuais, login JWT RS256 e validação por chave pública. Candidato `0.2.0`. O MVP executa localmente com banco hospedado no Neon PostgreSQL. Docker oferece PostgreSQL local; Azure Container Apps é uma opção de publicação ainda não executada.
+## Perfil profissional — candidato 0.3.0
+
+GET/PATCH `/auth/profile` permite editar o próprio resumo, senioridade,
+competências com domínio e disponibilidade semanal. Perfil é privado à conta;
+não representa alocação de equipe. [Contrato e preparação](docs/profile.md).
+Instalação anterior exige `init` administrativo explícito para criar a nova tabela
+e grants na role runtime; nenhum preparo remoto foi executado.
+
+API Python/FastAPI para contas individuais, login JWT RS256 e validação por chave pública. Candidato `0.3.0`. O MVP executa localmente com banco hospedado no Neon PostgreSQL. Docker oferece PostgreSQL local; Azure Container Apps é uma opção de publicação ainda não executada.
 
 Este repositório contém o serviço de identidade de Caue. Projetos/equipes/papéis por projeto e backlog serão desenvolvidos nos repositórios de Brian e Igor. Consulte o [contrato de integração](docs/integration.md), o [guia do MVP com Neon](docs/database-neon.md) e a [opção de deploy Azure](docs/deploy-azure.md).
 
@@ -57,7 +65,7 @@ docker compose run --rm admin set-active --user-id UUID_DO_USUARIO --inactive
 docker compose run --rm admin set-active --user-id UUID_DO_USUARIO --active
 ```
 
-Chave e conta sobrevivem ao reinício. Repetir `admin init` não sobrescreve chave/dados. Chave existente inválida causa erro e precisa ser corrigida explicitamente. Alterações de tabelas futuras exigem migrações; `init` prepara somente o esquema inicial, não migra estruturas existentes.
+Chave e conta sobrevivem ao reinício. Repetir `admin init` não sobrescreve chave/dados. Chave existente inválida causa erro e precisa ser corrigida explicitamente. Alterações de tabelas futuras exigem migrações; `init` cria tabelas ausentes, incluindo profiles, mas não altera colunas de tabelas existentes.
 
 ## Executar Python no host
 

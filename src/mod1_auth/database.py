@@ -34,7 +34,10 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def initialize_database(engine: Engine) -> None:
-    from mod1_auth import repositories  # noqa: F401 -- register ORM tables for explicit admin init
+    from mod1_auth import (
+        profile_repository,  # noqa: F401 -- explicit administrative schema
+        repositories,  # noqa: F401 -- register ORM tables for explicit admin init
+    )
 
     if engine.dialect.name == "postgresql":
         schema = engine.get_execution_options()["schema_translate_map"]["mod1_identity"]

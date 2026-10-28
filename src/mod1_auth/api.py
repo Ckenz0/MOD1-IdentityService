@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from email_validator import EmailNotValidError, validate_email
@@ -15,6 +15,9 @@ from mod1_auth.domain import (
     PasswordChangeRejectedError,
     User,
 )
+from mod1_auth.profile_repository import ProfileRepository
+from mod1_auth.profile_service import ProfileService
+from mod1_auth.profiles import Profile, ProfilePatch
 from mod1_auth.repositories import UserRepository
 from mod1_auth.security import TokenResponse, build_jwks
 from mod1_auth.services import AuthService, UserService, normalize_email
@@ -99,7 +102,60 @@ def get_user_service(request: Request) -> Iterator[UserService]:
         yield UserService(UserRepository(session), request.app.state.password_min_length)
 
 
+def get_profile_service(request: Request) -> Iterator[ProfileService]:
+    with request.app.state.sessions() as session:
+        yield ProfileService(
+            ProfileRepository(session),
+            AuthService(UserRepository(session), request.app.state.tokens),
+        )
+
+
+def authenticated_profile_token(token: Annotated[str | None, Depends(oauth2)]) -> str:
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
+
+
 def register_routes(app: FastAPI) -> None:
+    profile_responses: dict[int | str, dict[str, Any]] = {
+        401: {"description": "Invalid authentication credentials"},
+        422: {"description": "Invalid profile data"},
+        503: {"description": "Service unavailable"},
+    }
+
+    @app.get("/auth/profile", response_model=Profile, responses=profile_responses)
+    def profile(
+        token: Annotated[str, Depends(authenticated_profile_token)],
+        service: Annotated[ProfileService, Depends(get_profile_service)],
+    ) -> Profile:
+        try:
+            return service.get(token)
+        except InvalidCredentialsError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+
+    @app.patch("/auth/profile", response_model=Profile, responses=profile_responses)
+    def patch_profile(
+        patch: ProfilePatch,
+        token: Annotated[str, Depends(authenticated_profile_token)],
+        service: Annotated[ProfileService, Depends(get_profile_service)],
+    ) -> Profile:
+        try:
+            return service.patch(token, patch)
+        except InvalidCredentialsError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+
     @app.post("/auth/register", status_code=202, response_model=RegistrationResponse)
     def register(
         response: Response,

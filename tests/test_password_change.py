@@ -226,7 +226,7 @@ def test_maximum_length_password_can_be_used_for_next_change(client, user):
 
 def test_openapi_describes_password_authentication_and_empty_success(client):
     schema = client.get("/openapi.json").json()
-    assert schema["info"]["version"] == "0.2.0"
+    assert schema["info"]["version"] == "0.3.0"
     assert not schema["paths"]["/auth/password-policy"]["get"].get("security")
     change = schema["paths"]["/auth/password"]["post"]
     assert change["security"] == [{"OAuth2PasswordBearer": []}]

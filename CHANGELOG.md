@@ -1,6 +1,15 @@
 # Changelog
 
-Mudanças de produto seguem Keep a Changelog e SemVer. A versão candidata do pacote é `0.2.0`; nenhuma release publicada é presumida.
+## 0.3.0 — candidato local, 2026-10-28
+
+### Added
+
+- Perfil profissional privado com resumo, senioridade, disponibilidade e até 30 competências com domínio de 1 a 5.
+- GET sem escrita e PATCH parcial atômico, derivando usuário do Bearer e recusando extras/null/duplicatas.
+- Nova tabela própria profiles, criada apenas por preparação administrativa explícita; sem DDL no startup.
+- Testes de isolamento, concorrência e persistência PostgreSQL; evolução MINOR local.
+
+Mudanças de produto seguem Keep a Changelog e SemVer. A versão candidata do pacote é `0.3.0`; nenhuma release publicada é presumida.
 
 ## 0.2.0 — candidato local, 2026-10-28
 

@@ -12,6 +12,8 @@ from sqlalchemy.schema import DropSchema
 from mod1_auth.database import create_engine_for_url, create_session_factory, initialize_database
 from mod1_auth.domain import DuplicateEmailError
 from mod1_auth.main import create_app
+from mod1_auth.profile_repository import ProfileRepository
+from mod1_auth.profiles import ProfilePatch
 from mod1_auth.repositories import UserRepository
 from mod1_auth.services import UserService
 
@@ -59,6 +61,31 @@ def test_postgresql_normalization_duplicate_and_rollback(pg_database):
         reloaded = UserRepository(session).get_by_id(user.id)
         assert reloaded.email == "caue@example.com"
         assert reloaded.created_at == user.created_at
+
+
+def test_postgresql_profile_upsert_partial_and_restart(pg_database):
+    _, _, engine = pg_database
+    with create_session_factory(engine)() as session:
+        users = UserService(UserRepository(session))
+        a = users.create_user(
+            email="profile-a@example.com", display_name="A", password="password12345"
+        )
+        b = users.create_user(
+            email="profile-b@example.com", display_name="B", password="password12345"
+        )
+        profiles = ProfileRepository(session)
+        assert profiles.get(a.id).summary == ""
+        profiles.patch(
+            a.id, ProfilePatch(summary="Contexto 🌱", skills=[{"name": "SQL", "level": 4}])
+        )
+        profiles.patch(a.id, ProfilePatch(seniority="mid", weekly_availability_hours=24))
+    engine.dispose()
+    with create_session_factory(engine)() as session:
+        profiles = ProfileRepository(session)
+        restored = profiles.get(a.id)
+        assert restored.summary == "Contexto 🌱" and restored.skills[0].name == "SQL"
+        assert restored.seniority == "mid" and restored.weekly_availability_hours == 24
+        assert profiles.get(b.id).summary == "" and profiles.get(b.id).skills == []
 
 
 def test_postgresql_login_and_restart(pg_database, settings):
