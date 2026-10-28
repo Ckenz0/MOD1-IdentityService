@@ -1,6 +1,19 @@
 # Changelog
 
-Mudanças de produto seguem Keep a Changelog e SemVer. A versão candidata do pacote é `0.1.0`; nenhuma release publicada é presumida.
+Mudanças de produto seguem Keep a Changelog e SemVer. A versão candidata do pacote é `0.2.0`; nenhuma release publicada é presumida.
+
+## 0.2.0 — candidato local, 2026-10-28
+
+### Added
+
+- Consulta pública da política de senha e troca autenticada da própria senha, com senha literal, hash Argon2, respostas sem cache e validação sem ecoar segredos.
+- `PASSWORD_MIN_LENGTH` entre 12 e 128, padrão 12, aplicado no cadastro, CLI e troca; máximo fixo 128.
+- Atualização condicionada ao hash anterior e à conta ativa para impedir duas trocas concorrentes com a mesma senha anterior. Nenhuma mudança de schema.
+
+### Security
+
+- JWTs emitidos permanecem válidos até o TTL residual (padrão 30 minutos); revogação e refresh não fazem parte desta versão.
+- Runtime precisa de UPDATE em `password_hash` da tabela própria; concessões continuam sendo operações administrativas explícitas.
 
 ## Unreleased
 

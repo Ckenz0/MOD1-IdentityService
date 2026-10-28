@@ -80,6 +80,37 @@ def test_postgresql_login_and_restart(pg_database, settings):
         assert me.json() == first_me
 
 
+def test_postgresql_password_change_persists_and_rejects_stale_hash(pg_database, settings):
+    url, schema, engine = pg_database
+    settings.database_url = type(settings.database_url)(url)
+    settings.database_schema = schema
+    with create_session_factory(engine)() as session:
+        user = UserService(UserRepository(session)).create_user(
+            email="password@example.com", display_name="Password", password="password12345"
+        )
+    with TestClient(create_app(settings)) as client:
+        token = client.post(
+            "/auth/token", data={"username": user.email, "password": "password12345"}
+        ).json()["access_token"]
+        changed = client.post(
+            "/auth/password",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"current_password": "password12345", "new_password": "  nova senha literal  "},
+        )
+        assert changed.status_code == 204
+    with create_session_factory(engine)() as session:
+        repository = UserRepository(session)
+        assert not repository.change_password(user.id, user.password_hash, "stale")
+    with TestClient(create_app(settings)) as restarted:
+        for password, status in [("password12345", 401), ("  nova senha literal  ", 200)]:
+            assert (
+                restarted.post(
+                    "/auth/token", data={"username": user.email, "password": password}
+                ).status_code
+                == status
+            )
+
+
 def test_postgresql_missing_schema_is_not_liveness_failure(pg_database, settings):
     url, _, _ = pg_database
     settings.database_url = type(settings.database_url)(url)

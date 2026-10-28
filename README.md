@@ -1,6 +1,6 @@
 # Autenticação
 
-API Python/FastAPI para contas individuais, login JWT RS256 e validação por chave pública. Candidato `0.1.0`. O MVP executa localmente com banco hospedado no Neon PostgreSQL. Docker oferece PostgreSQL local; Azure Container Apps é uma opção de publicação ainda não executada.
+API Python/FastAPI para contas individuais, login JWT RS256 e validação por chave pública. Candidato `0.2.0`. O MVP executa localmente com banco hospedado no Neon PostgreSQL. Docker oferece PostgreSQL local; Azure Container Apps é uma opção de publicação ainda não executada.
 
 Este repositório contém o serviço de identidade de Caue. Projetos/equipes/papéis por projeto e backlog serão desenvolvidos nos repositórios de Brian e Igor. Consulte o [contrato de integração](docs/integration.md), o [guia do MVP com Neon](docs/database-neon.md) e a [opção de deploy Azure](docs/deploy-azure.md).
 
@@ -86,6 +86,7 @@ Em Windows com Controle de Aplicativo que recuse lançadores de ambiente virtual
 | `JWT_ISSUER` | obrigatório, estável e exato para os consumidores |
 | `JWT_AUDIENCE` | `engenharia-software-api` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | inteiro positivo, padrão 30 |
+| `PASSWORD_MIN_LENGTH` | inteiro entre 12 e 128, padrão 12; máximo fixo 128 |
 | `CORS_ORIGINS` | lista JSON de origens HTTP(S) exatas, padrão `[]` |
 | `POSTGRES_PASSWORD` | apenas PostgreSQL de desenvolvimento/Compose |
 

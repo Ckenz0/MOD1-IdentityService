@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_issuer: str = Field(min_length=1)
     jwt_audience: str = Field(default="engenharia-software-api", min_length=1)
     access_token_expire_minutes: int = Field(default=30, gt=0)
+    password_min_length: int = Field(default=12, ge=12, le=128)
     cors_origins: list[str] = Field(default_factory=list)
 
     @field_validator("database_url")

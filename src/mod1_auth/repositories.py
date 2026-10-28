@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, String, select
+from sqlalchemy import Boolean, DateTime, String, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
@@ -73,3 +73,17 @@ class UserRepository:
         record.is_active = active
         self.session.commit()
         return to_user(record)
+
+    def change_password(self, user_id: UUID, expected_hash: str, new_hash: str) -> bool:
+        result = self.session.execute(
+            update(UserRecord)
+            .where(
+                UserRecord.id == str(user_id),
+                UserRecord.password_hash == expected_hash,
+                UserRecord.is_active.is_(True),
+            )
+            .values(password_hash=new_hash)
+            .returning(UserRecord.id)
+        ).scalar_one_or_none()
+        self.session.commit()
+        return result is not None

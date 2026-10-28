@@ -1,5 +1,30 @@
 # Verificação do candidato 0.1.0 — 11/10/2026
 
+## Candidato local 0.2.0 — 28/10/2026
+
+- Baseline antes da implementação: **125 passaram, 5 ignorados**.
+- TDD: testes de política/troca/CAS falharam antes da implementação (22 casos);
+  o teste da CLI também comprovou que o mínimo configurado era ignorado.
+- Suíte completa após implementar: **150 passaram, 5 ignorados**, em 178,33 s.
+  Um sexto caso opt-in PostgreSQL foi acrescentado durante essa execução e
+  coletado separadamente: os **6 casos PostgreSQL foram ignorados** sem DSN.
+- Ruff, formatação, mypy (11 arquivos), `uv lock --check` e `git diff --check`
+  passaram; `uv build --no-build-isolation` gerou wheel e sdist 0.2.0.
+- Windows: bootstrap local de `hatchling` e `editables`, seguido de
+  `uv sync --locked --no-build-isolation`; dependências de runtime continuam
+  travadas no lock. Nenhuma alteração de política da máquina.
+- Os testes cobrem senhas literais/Unicode até 128 caracteres, política no
+  cadastro/CLI/troca, 204 vazio, 400 uniforme, autenticação, 422 sem segredos,
+  503 genérico, no-store e CAS com duas trocas simultâneas.
+
+Tudo ficou na branch local `feat/us-account-security`, sem publicação, deploy,
+concessões remotas ou alteração de schema. A validação PostgreSQL descartável e
+a revisão independente permanecem para a conferência integrada. Nenhum acesso ao
+Neon foi feito neste lote. JWTs emitidos conservam o TTL residual documentado;
+logout local após trocar senha não implementa revogação.
+
+## Evidência histórica 0.1.0
+
 O recorte permite criar conta, entrar, consultar a identidade e consumir o JWT
 RS256 nos demais serviços. Contas ficam no Neon e a chave privada permanece no
 host da API. Frontend e serviço de projetos executam separadamente.

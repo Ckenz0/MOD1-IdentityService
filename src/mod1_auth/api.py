@@ -9,7 +9,12 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from mod1_auth.database import database_is_ready
-from mod1_auth.domain import DuplicateEmailError, InvalidCredentialsError, User
+from mod1_auth.domain import (
+    DuplicateEmailError,
+    InvalidCredentialsError,
+    PasswordChangeRejectedError,
+    User,
+)
 from mod1_auth.repositories import UserRepository
 from mod1_auth.security import TokenResponse, build_jwks
 from mod1_auth.services import AuthService, UserService, normalize_email
@@ -52,6 +57,18 @@ class RegistrationResponse(BaseModel):
     message: str = "If this email is available, the account is ready. Try signing in."
 
 
+class PasswordChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    current_password: str = Field(max_length=128, repr=False)
+    new_password: str = Field(min_length=12, max_length=128, repr=False)
+
+
+class PasswordPolicyResponse(BaseModel):
+    min_length: int
+    max_length: int = 128
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str
@@ -72,12 +89,14 @@ class UserResponse(BaseModel):
 
 def get_auth_service(request: Request) -> Iterator[AuthService]:
     with request.app.state.sessions() as session:
-        yield AuthService(UserRepository(session), request.app.state.tokens)
+        yield AuthService(
+            UserRepository(session), request.app.state.tokens, request.app.state.password_min_length
+        )
 
 
 def get_user_service(request: Request) -> Iterator[UserService]:
     with request.app.state.sessions() as session:
-        yield UserService(UserRepository(session))
+        yield UserService(UserRepository(session), request.app.state.password_min_length)
 
 
 def register_routes(app: FastAPI) -> None:
@@ -96,8 +115,62 @@ def register_routes(app: FastAPI) -> None:
         except DuplicateEmailError:
             # Same response for existing accounts; never overwrite or reactivate them.
             pass
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=[
+                    {
+                        "type": "value_error",
+                        "loc": ["body", "password"],
+                        "msg": "Password does not meet the configured length policy",
+                    }
+                ],
+            ) from exc
         response.headers["Cache-Control"] = "no-store"
         return RegistrationResponse()
+
+    @app.get("/auth/password-policy", response_model=PasswordPolicyResponse)
+    def password_policy(request: Request) -> PasswordPolicyResponse:
+        return PasswordPolicyResponse(min_length=request.app.state.password_min_length)
+
+    @app.post(
+        "/auth/password",
+        status_code=204,
+        responses={
+            400: {"description": "Password change rejected"},
+            401: {"description": "Invalid authentication credentials"},
+            503: {"description": "Service unavailable"},
+        },
+    )
+    def change_password(
+        change: PasswordChangeRequest,
+        token: Annotated[str | None, Depends(oauth2)],
+        service: Annotated[AuthService, Depends(get_auth_service)],
+    ) -> Response:
+        try:
+            if not token:
+                raise InvalidCredentialsError()
+            service.change_password(token, change.current_password, change.new_password)
+        except InvalidCredentialsError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+        except PasswordChangeRejectedError as exc:
+            raise HTTPException(status_code=400, detail="Password change rejected") from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=[
+                    {
+                        "type": "value_error",
+                        "loc": ["body", "new_password"],
+                        "msg": "Password does not meet the configured length policy",
+                    }
+                ],
+            ) from exc
+        return Response(status_code=204)
 
     @app.post(
         "/auth/token",
