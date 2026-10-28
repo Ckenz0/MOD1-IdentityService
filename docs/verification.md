@@ -2,6 +2,20 @@
 
 ## Candidato local 0.2.0 — 28/10/2026
 
+### Conferência integrada concluída
+
+- Suíte completa com PostgreSQL 16.15 descartável em loopback: **156 passaram,
+  nenhum skip**, em 125,75 s. Inclui os seis testes PostgreSQL e o CAS concorrente.
+- Frontend candidato 0.3.0: **85 testes aprovados sem skips**, com as três APIs
+  reais e SQLite/chaves temporários. A troca por navegador encerra a sessão local,
+  a senha anterior é recusada no novo login e a nova senha autentica.
+- Revisão independente dos três backends concluída sem achados críticos/importantes.
+- Banco temporário encerrado e removido; nenhum grant/deploy/SQL remoto executado.
+- JWT já emitido permanece válido nos consumidores até expirar, conforme contrato;
+  esta entrega não implementa revogação/refresh/MFA ou recuperação por e-mail.
+
+### Registro da implementação antes da conferência integrada
+
 - Baseline antes da implementação: **125 passaram, 5 ignorados**.
 - TDD: testes de política/troca/CAS falharam antes da implementação (22 casos);
   o teste da CLI também comprovou que o mínimo configurado era ignorado.
@@ -19,7 +33,7 @@
 
 Tudo ficou na branch local `feat/us-account-security`, sem publicação, deploy,
 concessões remotas ou alteração de schema. A validação PostgreSQL descartável e
-a revisão independente permanecem para a conferência integrada. Nenhum acesso ao
+a revisão independente estavam pendentes nesta etapa (concluídas acima). Nenhum acesso ao
 Neon foi feito neste lote. JWTs emitidos conservam o TTL residual documentado;
 logout local após trocar senha não implementa revogação.
 
