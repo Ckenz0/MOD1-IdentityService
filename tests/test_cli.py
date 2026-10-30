@@ -77,6 +77,13 @@ def test_create_rejects_invalid_input(cli_env, monkeypatch, values):
     engine.dispose()
 
 
+def test_cli_uses_configured_password_policy(cli_env, monkeypatch):
+    monkeypatch.setenv("PASSWORD_MIN_LENGTH", "24")
+    assert main(["init"]) == 0
+    assert create(monkeypatch, password="x" * 23) == 1
+    assert create(monkeypatch, password="x" * 24) == 0
+
+
 def test_duplicate_email_returns_error(cli_env, monkeypatch):
     assert main(["init"]) == 0
     assert create(monkeypatch) == 0

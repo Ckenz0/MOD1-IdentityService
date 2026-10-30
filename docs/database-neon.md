@@ -1,5 +1,11 @@
 # MVP local com Neon PostgreSQL
 
+## Atualização local 0.3.0
+
+Preparar a tabela profiles explicitamente com `init` administrativo e conceder
+SELECT/INSERT/UPDATE à role runtime existente. [Contrato e grants](profile.md).
+Startup e readiness não substituem essa preparação. Nada foi aplicado ao Neon.
+
 A API e o frontend executam no computador; as contas ficam no Neon, no schema `mod1_identity`. O banco armazena hashes Argon2 de senha. A autenticação continua sendo responsabilidade desta API, com JWT RS256; não utiliza um serviço externo de login.
 
 ## Conexão e preparação
@@ -33,10 +39,20 @@ Depois, pelo PostgreSQL administrativo, crie um role runtime com senha própria 
 REVOKE ALL ON SCHEMA mod1_identity FROM PUBLIC;
 REVOKE ALL ON mod1_identity.users FROM PUBLIC;
 GRANT USAGE ON SCHEMA mod1_identity TO mod1_auth_runtime;
-GRANT SELECT, INSERT, UPDATE ON mod1_identity.users TO mod1_auth_runtime;
+GRANT SELECT, INSERT ON mod1_identity.users TO mod1_auth_runtime;
+GRANT UPDATE (password_hash, is_active) ON mod1_identity.users TO mod1_auth_runtime;
 ```
 
-Substitua `DATABASE_URL` pela conexão desse role na API. `init` exige a credencial administrativa; o runtime não possui permissão para criar tabelas. Para criar uma conta usando a conexão runtime:
+Substitua `DATABASE_URL` pela conexão desse role na API. `init` exige a credencial administrativa; o runtime não possui permissão para criar tabelas.
+
+Na versão 0.2.0, `password_hash` permite a troca autenticada de senha; `is_active`
+é usado pela CLI administrativa `set-active` já existente. Somente a tabela
+própria recebe UPDATE, sem privilégio em outros schemas. Para instalações com
+UPDATE amplo anterior, a redução de privilégios exige revisão e `REVOKE UPDATE`
+administrativo antes das concessões por coluna. Esta versão não executa DDL,
+migração ou concessão remota automaticamente.
+
+Para criar uma conta usando a conexão runtime:
 
 ```console
 uv run --locked python -m mod1_auth.cli create-user --email pessoa@example.com --name Pessoa

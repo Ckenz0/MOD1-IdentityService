@@ -23,3 +23,7 @@ class UserNotFoundError(Exception):
 
 class InvalidCredentialsError(Exception):
     pass
+
+
+class PasswordChangeRejectedError(Exception):
+    pass

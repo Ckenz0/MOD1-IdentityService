@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mod1-auth"
-version = "0.1.0"
+version = "0.3.0"
 description = "Identidade e autenticacao do modulo 1"
 requires-python = ">=3.12"
 dependencies = [

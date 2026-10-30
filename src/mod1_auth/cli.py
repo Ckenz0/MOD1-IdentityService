@@ -45,9 +45,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print("Schema e chave prontos; dados existentes preservados.")
                 return 0
             with create_session_factory(engine)() as session:
-                users = UserService(UserRepository(session))
+                users = UserService(UserRepository(session), settings.password_min_length)
                 if args.command == "create-user":
-                    password = getpass.getpass("Senha (12 a 128 caracteres): ")
+                    password = getpass.getpass(
+                        f"Senha ({settings.password_min_length} a 128 caracteres): "
+                    )
                     confirmation = getpass.getpass("Confirme a senha: ")
                     if password != confirmation:
                         raise ValueError("Password confirmation does not match")
