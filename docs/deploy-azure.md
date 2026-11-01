@@ -224,6 +224,15 @@ logs, artefatos ou código. Provisionar novos segredos no Key Vault não é
 pré-requisito para esse caminho. Preserve as referências de JWT e banco já
 existentes; não substitua a RSA nem a credencial runtime durante essa atualização.
 
+O workflow chama `scripts/azure_identity_secrets.py`, que usa o PATCH de
+Container Apps `2025-01-01` somente para `configuration.secrets`. Ele preserva
+referências Key Vault e valores nativos existentes e aborta se não conseguir
+preservá-los. O payload temporário tem acesso restrito e é apagado ao final;
+os valores não entram no log nem nos argumentos do processo. Não reenvia
+`environmentId`/`managedEnvironmentId`, evitando exigir permissão de associação
+ao ambiente para uma alteração restrita ao app. O deploy da imagem continua
+usando `az containerapp update` e aguarda a revisão ficar pronta.
+
 Antes de reaplicar `apps.bicep` sobre apps existentes, inventarie as definições
 de segredos e as variáveis atuais sem revelar valores. O template declara a
 lista de segredos e o ambiente do contêiner: reaplicá-lo sem representar a
