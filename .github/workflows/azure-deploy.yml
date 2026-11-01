@@ -103,8 +103,7 @@ jobs:
           az extension add --name containerapp --upgrade --only-show-errors
           [[ "$FRONTEND_ORIGIN" =~ ^https://[a-z0-9.-]+$ ]]
           [[ -n "$MFA_ENCRYPTION_KEY" && -n "$RESEND_API_KEY" && -n "$RESEND_FROM" ]]
-          az containerapp secret set --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
-            --secrets "mfa-encryption-key=$MFA_ENCRYPTION_KEY" "resend-api-key=$RESEND_API_KEY" --output none
+          python scripts/azure_identity_secrets.py
           revision=$(az containerapp update --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
             --image "$IMAGE_REFERENCE" --set-env-vars \
             "FRONTEND_ORIGIN=$FRONTEND_ORIGIN" "LOCAL_MAILBOX_ENABLED=false" "MAIL_PROVIDER=resend" \
