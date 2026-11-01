@@ -128,3 +128,20 @@ def test_init_invalid_existing_key_is_not_overwritten(cli_env):
     path.write_bytes(b"invalid")
     assert main(["init"]) != 0
     assert path.read_bytes() == b"invalid"
+
+
+def test_explicit_admin_bootstrap_can_grant_and_remove(cli_env, monkeypatch):
+    assert main(["init"]) == 0
+    assert create(monkeypatch) == 0
+    engine = create_engine_for_url(f"sqlite:///{cli_env / 'cli.db'}")
+    try:
+        with create_session_factory(engine)() as session:
+            user = UserRepository(session).get_by_email("caue@example.com")
+            assert UserRepository(session).identity.account(user.id)["is_admin"] is False
+        for flag, expected in [("--admin", True), ("--no-admin", False)]:
+            assert main(["set-admin", "--user-id", str(user.id), flag]) == 0
+            with create_session_factory(engine)() as session:
+                assert UserRepository(session).identity.account(user.id)["is_admin"] is expected
+        assert main(["set-admin", "--user-id", str(uuid4()), "--admin"]) == 1
+    finally:
+        engine.dispose()

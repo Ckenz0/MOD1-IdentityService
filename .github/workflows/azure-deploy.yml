@@ -93,11 +93,23 @@ jobs:
         if: github.event_name == 'push' || inputs.deploy_revision
         env:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+          RESEND_FROM: ${{ vars.RESEND_FROM }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           az extension add --name containerapp --upgrade --only-show-errors
-          revision=$(az containerapp update --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$IMAGE_REFERENCE" --query properties.latestRevisionName --output tsv)
+          [[ "$FRONTEND_ORIGIN" =~ ^https://[a-z0-9.-]+$ ]]
+          [[ -n "$MFA_ENCRYPTION_KEY" && -n "$RESEND_API_KEY" && -n "$RESEND_FROM" ]]
+          az containerapp secret set --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --secrets "mfa-encryption-key=$MFA_ENCRYPTION_KEY" "resend-api-key=$RESEND_API_KEY" --output none
+          revision=$(az containerapp update --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$IMAGE_REFERENCE" --set-env-vars \
+            "FRONTEND_ORIGIN=$FRONTEND_ORIGIN" "LOCAL_MAILBOX_ENABLED=false" "MAIL_PROVIDER=resend" \
+            "RESEND_FROM=$RESEND_FROM" "RESEND_API_KEY=secretref:resend-api-key" \
+            "MFA_ENCRYPTION_KEY=secretref:mfa-encryption-key" --query properties.latestRevisionName --output tsv)
           host=$(az containerapp show --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.configuration.ingress.fqdn --output tsv)
           [[ "$host" =~ ^[a-z0-9.-]+\.azurecontainerapps\.io$ ]]
           for attempt in $(seq 1 60); do

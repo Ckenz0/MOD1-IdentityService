@@ -1,6 +1,6 @@
 # Autenticação
 
-## Perfil profissional — candidato 0.3.0
+## Identidade 0.4.0 — preparação de release
 
 GET/PATCH `/auth/profile` permite editar o próprio resumo, senioridade,
 competências com domínio e disponibilidade semanal. Perfil é privado à conta;
@@ -8,23 +8,22 @@ não representa alocação de equipe. [Contrato e preparação](docs/profile.md)
 Instalação anterior exige `init` administrativo explícito para criar a nova tabela
 e grants na role runtime; nenhum preparo remoto foi executado.
 
-API Python/FastAPI para contas individuais, login JWT RS256 e validação por chave pública. Candidato `0.3.0`. O MVP executa localmente com banco hospedado no Neon PostgreSQL. Docker oferece PostgreSQL local; Azure Container Apps é uma opção de publicação ainda não executada.
+API Python/FastAPI para contas individuais, sessões, recuperação, MFA e login JWT RS256. Versão `0.4.0` preparada para publicação; este texto não comprova deploy. A execução pode usar Neon PostgreSQL ou PostgreSQL local com Docker.
 
-Este repositório contém o serviço de identidade de Caue. Projetos/equipes/papéis por projeto e backlog serão desenvolvidos nos repositórios de Brian e Igor. Consulte o [contrato de integração](docs/integration.md), o [guia do MVP com Neon](docs/database-neon.md) e a [opção de deploy Azure](docs/deploy-azure.md).
+Este repositório contém o serviço de identidade de Caue. Projetos/equipes/papéis por projeto e backlog são serviços separados de Brian e Igor. Consulte o [contrato de integração](docs/integration.md), o [guia com Neon](docs/database-neon.md) e a [operação Azure](docs/deploy-azure.md).
 
 ## Arquitetura
 
-```text
-Apresentação             Aplicação                Persistência
-api.py / cli.py     →     services.py       →      repositories.py
-FastAPI / argparse       Casos de uso             SQLAlchemy
-                         domain.py                database.py
+O serviço usa arquitetura multicamadas: `api.py` apresenta HTTP;
+`services.py` e `profile_service.py` executam os casos de uso; `domain.py` e
+`profiles.py` definem o domínio; repositórios, banco e segurança fornecem a
+infraestrutura. `main.py`, `dependencies.py` e a CLI compõem os recursos.
 
-security.py: Argon2, RSA/JWT/JWKS   config.py: ambiente validado
-main.py: composição, lifespan, recursos e CORS
-```
-
-Rotas e CLI delegam regras aos casos de uso; aplicação não depende de FastAPI; repositório cuida de consultas/transações. A API não cria tabelas nem gera chaves ao iniciar. A administração executa `init` explicitamente. Schema exclusivo: `mod1_identity`.
+Rotas não abrem sessões nem montam repositórios; aplicação não importa FastAPI
+ou SQLAlchemy; domínio não depende de HTTP/banco. A administração executa `init`
+explicitamente, sem criar tabelas/chaves ao iniciar a API. Schema exclusivo:
+`mod1_identity`. Veja os diagramas, fluxos e limites em
+[Arquitetura da Identidade](docs/architecture.md).
 
 ## Executar o MVP com Neon
 
@@ -38,6 +37,21 @@ uv run --locked python -m uvicorn mod1_auth.main:create_app --factory --host 127
 O frontend fica no repositório separado [MOD1-Frontend](https://github.com/Ckenz0/MOD1-Frontend), servido em `http://127.0.0.1:5173`. Configure `CORS_ORIGINS=["http://127.0.0.1:5173"]`. Os dados das contas ficam no Neon; a chave privada persistente fica no host da API. SQLite continua sendo usado pelos testes rápidos.
 
 O usuário pode criar a própria conta no frontend e entrar imediatamente. A rota pública `POST /auth/register` reutiliza a criação de usuários existente e preserva contas anteriores em caso de e-mail duplicado. Nome, e-mail e senha são validados pelo backend; confira o contrato em [docs/integration.md](docs/integration.md).
+
+Sessões, renovação, revogação administrativa, bloqueio, recuperação, confirmação
+de e-mail, MFA e diretório profissional consentido estão descritos em
+[segurança e recuperação](docs/security-and-recovery.md). O login com MFA ativo
+retorna um desafio temporário antes de emitir JWT. Troca e reset de senha revogam
+todas as sessões. A caixa postal local não representa entrega SMTP real;
+recomendações de anomalias dependem de provedor configurado e decisão humana.
+
+Envio real de recuperação/confirmação usa o [Resend](docs/resend.md): configure
+`MAIL_PROVIDER=resend`, `RESEND_API_KEY` e `RESEND_FROM` somente no backend.
+Um envio real de teste foi aceito e recebido, com confirmação do usuário. O
+remetente de teste `onboarding@resend.dev`, sem domínio verificado, restringe
+destinatários ao e-mail autorizado da conta. Os fluxos de recuperação/confirmação
+foram validados com HTTP controlado; esse envio de teste não valida seus links
+reais nem entrega geral. IA real permanece desabilitada.
 
 ## Iniciar com Docker
 

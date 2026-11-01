@@ -179,6 +179,61 @@ APIs suspensas deixam de consumir compute de réplicas, mas ACR, Key Vault, logs
 
 Ao terminar a demonstração, inventarie os recursos do grupo, preserve chave e informações de recuperação necessárias e remova somente os recursos que decidir encerrar. Excluir o Resource Group também remove o frontend e o registro; o Key Vault tem soft-delete. O Neon é externo e seus dados devem ser preservados. Não use remoção de volumes/schemas como procedimento de deploy.
 
+## Atualização multicamadas: URLs, MFA e Resend
+
+O template de APIs configura `AUTH_API_BASE_URL` em Projetos e Backlog,
+`BACKLOG_API_BASE_URL` em Projetos e `PROJECTS_API_BASE_URL` em Backlog usando
+as URLs HTTPS estáveis do mesmo ambiente. Identidade recebe `FRONTEND_ORIGIN`
+com a origem do frontend. Mantenha a verificação online de sessão habilitada
+e o acesso v2 de Projetos no Backlog; os defaults do código já fazem isso.
+Publicar somente uma imagem não acrescenta variáveis de ambiente nem migra
+o banco. Readiness também não comprova essas integrações: valide uma chamada
+autenticada de ponta a ponta após configurar as URLs.
+
+O gerador `scripts/azure_config.py` mantém o JSON antigo válido e aceita três
+campos opcionais adicionais. Exemplo de referências públicas fictícias:
+
+```json
+{
+  "authMfaSecretUri": "https://SEU_VAULT.vault.azure.net/secrets/identity-mfa-encryption-key/55555555555555555555555555555555",
+  "authResendSecretUri": "https://SEU_VAULT.vault.azure.net/secrets/identity-resend-api-key/66666666666666666666666666666666",
+  "resendFrom": "Modulo 1 <access@SEU_DOMINIO_VERIFICADO>"
+}
+```
+
+Acrescente esses campos às referências existentes, substituindo vault, versões
+e remetente. O gerador exige HTTPS, o vault configurado, o nome exato de cada
+segredo e uma versão de 32 caracteres hexadecimais. Recusa referências trocadas
+e configuração parcial do Resend. MFA pode ser configurado independentemente.
+Referências vazias ou ausentes não provisionam os recursos opcionais. Nunca
+coloque o conteúdo de uma chave nesse JSON, nas Variables do GitHub ou no Git.
+
+Quando essas referências existem, o template concede leitura individual de
+`identity-mfa-encryption-key` e `identity-resend-api-key` somente à identidade
+gerenciada da API de Identidade; não amplia acesso ao vault e não entrega as
+chaves a Projetos, Backlog ou Frontend. `MFA_ENCRYPTION_KEY` e `RESEND_API_KEY`
+usam `secretRef`. O Resend é habilitado somente com referência e remetente;
+na ausência deles o template define `MAIL_PROVIDER=disabled`. A caixa local
+de desenvolvimento permanece desabilitada. A chave MFA deve ser Fernet,
+persistente e preservada entre revisões: perdê-la impede ler seeds já inscritos.
+
+O release atual também pode usar segredos nativos de Container Apps, com
+`secretRef`, configurados por um workflow OIDC autorizado. O conteúdo pode
+entrar pelo GitHub Environment Secret, sem aparecer em comandos registrados,
+logs, artefatos ou código. Provisionar novos segredos no Key Vault não é
+pré-requisito para esse caminho. Preserve as referências de JWT e banco já
+existentes; não substitua a RSA nem a credencial runtime durante essa atualização.
+
+Antes de reaplicar `apps.bicep` sobre apps existentes, inventarie as definições
+de segredos e as variáveis atuais sem revelar valores. O template declara a
+lista de segredos e o ambiente do contêiner: reaplicá-lo sem representar a
+configuração nativa atual pode remover referências necessárias e desabilitar
+envio/MFA. Preserve ou migre os segredos existentes para referências equivalentes
+antes da aplicação e revise o what-if. O template não importa nem recupera
+automaticamente os valores nativos. Conserve também os digests atuais nas
+referências e execute previamente as migrações administrativas documentadas
+pelos três serviços; startup não executa DDL.
+
 ## Referências
 
 - [Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/overview), [escala](https://learn.microsoft.com/en-us/azure/container-apps/scale-app) e [cobrança](https://learn.microsoft.com/en-us/azure/container-apps/billing).

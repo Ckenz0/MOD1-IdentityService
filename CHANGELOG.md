@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — preparação de release, 2026-11-01
+
+### Added
+
+- Sessões persistidas, refresh opaco rotativo, detecção de reutilização, logout e revogação por sessão, conta ou token; verificação online pelos consumidores.
+- Bloqueio de login, auditoria, administração de contas, recuperação de senha, confirmação de e-mail e MFA TOTP com códigos de recuperação.
+- Diretório profissional consentido e adaptador de recomendações com aprovação humana; IA real permanece desabilitada e sem validação de provedor.
+- Transporte Resend na infraestrutura para recuperação/confirmação, com idempotência, sanitização e resposta pública uniforme. Uma mensagem genérica real foi aceita e recebida, confirmada pelo usuário; os fluxos de recuperação/confirmação foram validados com HTTP controlado. Remetente de teste tem escopo limitado e não substitui domínio verificado ou prova de entrega a destinatários gerais.
+
+### Changed
+
+- Arquitetura multicamadas com fronteiras verificadas entre HTTP, aplicação, domínio e infraestrutura, mantendo schema exclusivo e JWT RS256/JWKS.
+- Login pode retornar desafio MFA; login concluído inclui credenciais de sessão/refresh. Troca e reset de senha revogam todas as sessões. Consumidores que validam apenas assinatura não observam revogação imediatamente.
+- Migração administrativa explícita e idempotente antes do novo runtime; startup não executa DDL. Veja [sessões, recuperação e MFA](docs/security-and-recovery.md) e o [contrato de integração](docs/integration.md).
+- Evolução MINOR pré-1.0 por novas funcionalidades e mudanças de contrato. A versão preparada não comprova publicação, deploy ou integração externa.
+
 ## 0.3.0 — candidato local, 2026-10-28
 
 ### Added

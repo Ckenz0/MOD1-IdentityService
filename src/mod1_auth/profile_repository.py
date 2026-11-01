@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from mod1_auth.database import Base
 from mod1_auth.domain import InvalidCredentialsError
+from mod1_auth.identity_repository import IdentityRepository
 from mod1_auth.profiles import Profile, ProfilePatch
 from mod1_auth.repositories import UserRecord
 
@@ -29,16 +30,29 @@ class ProfileRecord(Base):
 class ProfileRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+        self.identity = IdentityRepository(session)
 
     def get(self, user_id: UUID) -> Profile:
         record = self.session.get(ProfileRecord, str(user_id))
         if record is None:
-            return Profile(user_id=user_id)
-        return Profile.model_validate(record, from_attributes=True)
+            profile = Profile(user_id=user_id)
+        else:
+            profile = Profile.model_validate(record, from_attributes=True)
+        return profile.model_copy(
+            update={
+                "share_for_recommendations": bool(
+                    (self.identity.get("consent:" + str(user_id)) or {}).get("shared", False)
+                )
+            }
+        )
 
     def patch(self, user_id: UUID, patch: ProfilePatch) -> Profile:
         changes = patch.model_dump(mode="json", exclude_unset=True)
-        values = Profile(user_id=user_id).model_dump(mode="json") | changes
+        share = changes.pop("share_for_recommendations", None)
+        values = (
+            Profile(user_id=user_id).model_dump(mode="json", exclude={"share_for_recommendations"})
+            | changes
+        )
         dialect = self.session.get_bind().dialect.name
         insert = pg_insert if dialect == "postgresql" else sqlite_insert
         # INSERT ... SELECT rechecks the active account in the same SQL statement.
@@ -54,7 +68,8 @@ class ProfileRepository:
         )
         returning = statement.on_conflict_do_update(
             index_elements=[ProfileRecord.user_id],
-            set_={key: getattr(statement.excluded, key) for key in changes},
+            set_={key: getattr(statement.excluded, key) for key in changes}
+            or {"user_id": str(user_id)},
         ).returning(ProfileRecord)
         try:
             record = self.session.scalars(
@@ -62,9 +77,19 @@ class ProfileRepository:
             ).one_or_none()
             if record is None:
                 raise InvalidCredentialsError()
-            profile = Profile.model_validate(record, from_attributes=True)
+            if share is not None:
+                self.identity.put(
+                    "consent:" + str(user_id), "consent", str(user_id), {"shared": share}
+                )
             self.session.commit()
-            return profile
+            return self.get(user_id)
         except (SQLAlchemyError, InvalidCredentialsError):
             self.session.rollback()
             raise
+
+    def snapshots(self) -> list[dict[str, Any]]:
+        users = self.session.scalars(select(UserRecord).where(UserRecord.is_active.is_(True))).all()
+        return [
+            self.get(UUID(user.id)).model_dump(mode="json") | {"display_name": user.display_name}
+            for user in users
+        ]

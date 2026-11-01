@@ -27,6 +27,7 @@ def test_unsaved_profile_returns_defaults_without_writing(client, user, engine):
         "seniority": "not_informed",
         "weekly_availability_hours": 0,
         "skills": [],
+        "share_for_recommendations": False,
     }
     assert response.headers["cache-control"] == "no-store"
     with engine.connect() as connection:
@@ -45,7 +46,11 @@ def test_partial_profile_persists_after_restart_and_cannot_access_other_account(
     }
     response = client.patch("/auth/profile", headers=headers, json=profile)
     assert response.status_code == 200
-    expected = profile | {"user_id": str(user.id), "skills": [{"name": "Python", "level": 5}]}
+    expected = profile | {
+        "user_id": str(user.id),
+        "skills": [{"name": "Python", "level": 5}],
+        "share_for_recommendations": False,
+    }
     assert response.json() == expected
     assert response.headers["cache-control"] == "no-store"
     with TestClient(create_app(settings)) as restarted:
@@ -156,7 +161,10 @@ def test_profile_accepts_exact_boundaries(client, user):
     }
     response = client.patch("/auth/profile", headers=authorization(client, user), json=profile)
     assert response.status_code == 200
-    assert response.json() == profile | {"user_id": str(user.id)}
+    assert response.json() == profile | {
+        "user_id": str(user.id),
+        "share_for_recommendations": False,
+    }
 
 
 @pytest.mark.parametrize("method", ["get", "patch"])

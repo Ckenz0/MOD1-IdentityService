@@ -38,8 +38,11 @@ def to_user(record: UserRecord) -> User:
 class UserRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+        from mod1_auth.identity_repository import IdentityRepository
 
-    def add(self, user: User) -> User:
+        self.identity = IdentityRepository(session)
+
+    def add(self, user: User, *, commit: bool = True) -> User:
         record = UserRecord(
             id=str(user.id),
             email=user.email,
@@ -50,7 +53,9 @@ class UserRepository:
         )
         self.session.add(record)
         try:
-            self.session.commit()
+            self.session.flush()
+            if commit:
+                self.session.commit()
         except IntegrityError as exc:
             self.session.rollback()
             if self.get_by_email(user.email) is not None:
@@ -67,11 +72,18 @@ class UserRepository:
         return to_user(record) if record is not None else None
 
     def set_active(self, user_id: UUID, active: bool) -> User:
+        user = self.update_active(user_id, active)
+        if not active:
+            self.identity.revoke_all(user_id)
+        self.session.commit()
+        return user
+
+    def update_active(self, user_id: UUID, active: bool) -> User:
         record = self.session.get(UserRecord, str(user_id))
         if record is None:
             raise UserNotFoundError("User not found")
         record.is_active = active
-        self.session.commit()
+        self.session.flush()
         return to_user(record)
 
     def change_password(self, user_id: UUID, expected_hash: str, new_hash: str) -> bool:
@@ -85,5 +97,7 @@ class UserRepository:
             .values(password_hash=new_hash)
             .returning(UserRecord.id)
         ).scalar_one_or_none()
+        if result is not None:
+            self.identity.revoke_all(user_id)
         self.session.commit()
         return result is not None

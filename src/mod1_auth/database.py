@@ -35,6 +35,7 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def initialize_database(engine: Engine) -> None:
     from mod1_auth import (
+        identity_repository,  # noqa: F401 -- explicit security schema migration
         profile_repository,  # noqa: F401 -- explicit administrative schema
         repositories,  # noqa: F401 -- register ORM tables for explicit admin init
     )
@@ -44,14 +45,27 @@ def initialize_database(engine: Engine) -> None:
         with engine.begin() as connection:
             connection.execute(CreateSchema(schema, if_not_exists=True))
     Base.metadata.create_all(engine)
+    from mod1_auth.identity_repository import SecurityMutex
+
+    with create_session_factory(engine)() as session:
+        if session.get(SecurityMutex, 1) is None:
+            session.add(SecurityMutex(id=1, generation=0))
+            session.commit()
 
 
 def database_is_ready(engine: Engine) -> bool:
+    from mod1_auth.identity_repository import SecurityDocument, SecurityMutex
     from mod1_auth.repositories import UserRecord
 
     try:
         with engine.connect() as connection:
             connection.execute(select(UserRecord.id).limit(1))
+            connection.execute(select(SecurityDocument.key).limit(1))
+            if (
+                connection.execute(select(SecurityMutex.id).where(SecurityMutex.id == 1)).first()
+                is None
+            ):
+                return False
         return True
     except SQLAlchemyError:
         return False

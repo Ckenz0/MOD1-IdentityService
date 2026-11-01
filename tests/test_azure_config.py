@@ -90,3 +90,100 @@ def test_reject_unknown_parameters_and_do_not_echo_values(tmp_path):
     with pytest.raises(ValueError) as exc:
         api.write_parameters(source, tmp_path / "params.json")
     assert "private-credential" not in str(exc.value)
+
+
+def test_render_optional_identity_secret_references(tmp_path):
+    source = inputs() | {
+        "authMfaSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-mfa-encryption-key/"
+        + "5" * 32,
+        "authResendSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-resend-api-key/"
+        + "6" * 32,
+        "resendFrom": "Modulo 1 <access@example.com>",
+    }
+    path = tmp_path / "params.json"
+    module().write_parameters(source, path)
+    result = json.loads(path.read_text(encoding="utf-8"))["parameters"]
+    assert {key: entry["value"] for key, entry in result.items()} == source
+
+
+def test_mfa_can_be_configured_without_email(tmp_path):
+    source = inputs() | {
+        "authMfaSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-mfa-encryption-key/"
+        + "5" * 32
+    }
+    path = tmp_path / "params.json"
+    module().write_parameters(source, path)
+    assert (
+        json.loads(path.read_text())["parameters"]["authMfaSecretUri"]["value"]
+        == source["authMfaSecretUri"]
+    )
+
+
+@pytest.mark.parametrize("field", ["authMfaSecretUri", "authResendSecretUri"])
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "https://other.vault.azure.net/secrets/{name}/" + "5" * 32,
+        "http://kv-demo123.vault.azure.net/secrets/{name}/" + "5" * 32,
+        "https://kv-demo123.vault.azure.net/secrets/{name}",
+        "https://kv-demo123.vault.azure.net/secrets/identity-database-url/" + "5" * 32,
+        "https://kv-demo123.vault.azure.net/secrets/{name}/" + "5" * 32 + "?token=private",
+        "https://kv-demo123.vault.azure.net/secrets/{name}/" + "5" * 32 + "#fragment",
+        "https://kv-demo123.vault.azure.net/secrets/{name}/" + "5" * 32 + "/extra",
+        "https://kv-demo123.vault.azure.net/secrets/{name}/" + "5" * 32 + "\n",
+        "private-key-content",
+    ],
+)
+def test_reject_optional_secret_uris_without_replacing_output(tmp_path, field, invalid):
+    name = (
+        "identity-mfa-encryption-key" if field == "authMfaSecretUri" else "identity-resend-api-key"
+    )
+    source = inputs() | {field: invalid.format(name=name)}
+    if field == "authResendSecretUri":
+        source["resendFrom"] = "Modulo 1 <access@example.com>"
+    path = tmp_path / "params.json"
+    path.write_text("existing", encoding="utf-8")
+    with pytest.raises(ValueError) as exc:
+        module().write_parameters(source, path)
+    assert "private-key-content" not in str(exc.value)
+    assert path.read_text(encoding="utf-8") == "existing"
+
+
+@pytest.mark.parametrize(
+    "optional",
+    [
+        {"resendFrom": "access@example.com"},
+        {
+            "authResendSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-resend-api-key/"
+            + "6" * 32
+        },
+        {
+            "authResendSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-resend-api-key/"
+            + "6" * 32,
+            "resendFrom": "access@example.com\nBcc: another@example.com",
+        },
+    ],
+)
+def test_reject_partial_or_multiline_resend_configuration(tmp_path, optional):
+    with pytest.raises(ValueError):
+        module().write_parameters(inputs() | optional, tmp_path / "params.json")
+
+
+def test_reject_swapped_optional_identity_secret_references(tmp_path):
+    source = inputs() | {
+        "authMfaSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-resend-api-key/"
+        + "5" * 32,
+        "authResendSecretUri": "https://kv-demo123.vault.azure.net/secrets/identity-mfa-encryption-key/"
+        + "6" * 32,
+        "resendFrom": "access@example.com",
+    }
+    with pytest.raises(ValueError):
+        module().write_parameters(source, tmp_path / "params.json")
+
+
+def test_empty_optional_references_keep_old_deployment_contract(tmp_path):
+    source = inputs() | {"authMfaSecretUri": "", "authResendSecretUri": "", "resendFrom": ""}
+    path = tmp_path / "params.json"
+    module().write_parameters(source, path)
+    result = json.loads(path.read_text(encoding="utf-8"))["parameters"]
+    assert {key: entry["value"] for key, entry in result.items()} == source

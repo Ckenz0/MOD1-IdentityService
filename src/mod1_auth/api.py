@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
@@ -8,17 +7,21 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from mod1_auth.database import database_is_ready
+from mod1_auth.dependencies import (
+    get_auth_service,
+    get_database_readiness,
+    get_profile_service,
+    get_user_service,
+)
 from mod1_auth.domain import (
     DuplicateEmailError,
     InvalidCredentialsError,
     PasswordChangeRejectedError,
     User,
 )
-from mod1_auth.profile_repository import ProfileRepository
+from mod1_auth.identity_service import MFAChallenge
 from mod1_auth.profile_service import ProfileService
 from mod1_auth.profiles import Profile, ProfilePatch
-from mod1_auth.repositories import UserRepository
 from mod1_auth.security import TokenResponse, build_jwks
 from mod1_auth.services import AuthService, UserService, normalize_email
 
@@ -78,6 +81,8 @@ class UserResponse(BaseModel):
     display_name: str
     is_active: bool
     created_at: datetime
+    is_admin: bool = False
+    email_verified: bool = False
 
     @classmethod
     def from_user(cls, user: User) -> "UserResponse":
@@ -87,26 +92,6 @@ class UserResponse(BaseModel):
             display_name=user.display_name,
             is_active=user.is_active,
             created_at=user.created_at,
-        )
-
-
-def get_auth_service(request: Request) -> Iterator[AuthService]:
-    with request.app.state.sessions() as session:
-        yield AuthService(
-            UserRepository(session), request.app.state.tokens, request.app.state.password_min_length
-        )
-
-
-def get_user_service(request: Request) -> Iterator[UserService]:
-    with request.app.state.sessions() as session:
-        yield UserService(UserRepository(session), request.app.state.password_min_length)
-
-
-def get_profile_service(request: Request) -> Iterator[ProfileService]:
-    with request.app.state.sessions() as session:
-        yield ProfileService(
-            ProfileRepository(session),
-            AuthService(UserRepository(session), request.app.state.tokens),
         )
 
 
@@ -230,14 +215,14 @@ def register_routes(app: FastAPI) -> None:
 
     @app.post(
         "/auth/token",
-        response_model=TokenResponse,
+        response_model=TokenResponse | MFAChallenge,
         responses={401: {"description": "Invalid credentials"}},
     )
     def token(
         response: Response,
         form: Annotated[OAuth2PasswordRequestForm, Depends()],
         service: Annotated[AuthService, Depends(get_auth_service)],
-    ) -> TokenResponse:
+    ) -> TokenResponse | MFAChallenge:
         try:
             result = service.authenticate(form.username, form.password)
         except InvalidCredentialsError as exc:
@@ -261,7 +246,8 @@ def register_routes(app: FastAPI) -> None:
         try:
             if not token:
                 raise InvalidCredentialsError()
-            return UserResponse.from_user(service.current_user(token))
+            user = service.current_user(token)
+            return UserResponse.from_user(user).model_copy(update=service.identity.flags(user))
         except InvalidCredentialsError as exc:
             raise HTTPException(
                 status_code=401,
@@ -278,8 +264,10 @@ def register_routes(app: FastAPI) -> None:
         return {"status": "ok"}
 
     @app.get("/health/ready", responses={503: {"description": "Database unavailable"}})
-    def ready(request: Request, response: Response) -> dict[str, str]:
-        if not database_is_ready(request.app.state.engine):
+    def ready(
+        response: Response, database_ready: Annotated[bool, Depends(get_database_readiness)]
+    ) -> dict[str, str]:
+        if not database_ready:
             response.status_code = 503
             return {"status": "unavailable"}
         return {"status": "ready"}
