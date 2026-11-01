@@ -42,6 +42,46 @@ def pg_database():
         engine.dispose()
 
 
+def test_postgresql_concurrent_refresh_replay_and_explicit_security_migration(
+    pg_database, settings
+):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from mod1_auth.identity_repository import SecurityDocument, SecurityMutex
+
+    url, schema, engine = pg_database
+    settings.database_url = type(settings.database_url)(url)
+    settings.database_schema = schema
+    with create_session_factory(engine)() as session:
+        user = UserService(UserRepository(session)).create_user(
+            email="session@example.com", display_name="Session", password="session-password"
+        )
+    SecurityDocument.__table__.drop(engine)
+    SecurityMutex.__table__.drop(engine)
+    with TestClient(create_app(settings)) as client:
+        assert client.get("/health/ready").status_code == 503
+    initialize_database(engine)
+    initialize_database(engine)
+    with TestClient(create_app(settings)) as client:
+        first = client.post(
+            "/auth/token", data={"username": user.email, "password": "session-password"}
+        ).json()
+
+        def rotate(_):
+            return client.post("/auth/refresh", json={"refresh_token": first["refresh_token"]})
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(rotate, range(2)))
+        assert sorted(response.status_code for response in results) == [200, 401]
+        winner = next(response.json() for response in results if response.status_code == 200)
+        assert (
+            client.get(
+                "/auth/me", headers={"Authorization": "Bearer " + winner["access_token"]}
+            ).status_code
+            == 401
+        )
+
+
 def test_postgresql_normalization_duplicate_and_rollback(pg_database):
     _, _, engine = pg_database
     with create_session_factory(engine)() as session:

@@ -13,12 +13,18 @@ param authDatabaseSecretUri string
 param projectsDatabaseSecretUri string
 param backlogDatabaseSecretUri string
 param jwtKeySecretUri string
+@description('Optional versioned Key Vault reference; never the MFA key value.')
+param authMfaSecretUri string = ''
+@description('Optional versioned Key Vault reference; never the Resend API key value.')
+param authResendSecretUri string = ''
+param resendFrom string = ''
 
 resource environment 'Microsoft.App/managedEnvironments@2025-01-01' existing = { name: environmentName }
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = { name: registryName }
 
 var authUrl = 'https://${resourcePrefix}-auth.${environment.properties.defaultDomain}'
 var projectsUrl = 'https://${resourcePrefix}-projects.${environment.properties.defaultDomain}'
+var backlogUrl = 'https://${resourcePrefix}-backlog.${environment.properties.defaultDomain}'
 var services = [
   { name: 'auth', image: authImage, port: 8000, cpu: '0.5', memory: '1Gi', databaseSchema: 'mod1_identity', databaseSecretName: 'identity-database-url', databaseSecretUri: authDatabaseSecretUri }
   { name: 'projects', image: projectsImage, port: 8001, cpu: '0.25', memory: '0.5Gi', databaseSchema: 'projects', databaseSecretName: 'projects-database-url', databaseSecretUri: projectsDatabaseSecretUri }
@@ -44,10 +50,15 @@ module apps 'modules/api.bicep' = [for service in services: {
     jwtIssuer: authUrl
     frontendOrigin: frontendOrigin
     privateKeySecretUri: service.name == 'auth' ? jwtKeySecretUri : ''
+    authApiBaseUrl: service.name != 'auth' ? authUrl : ''
+    backlogApiBaseUrl: service.name == 'projects' ? backlogUrl : ''
     projectsApiBaseUrl: service.name == 'backlog' ? projectsUrl : ''
+    mfaSecretUri: service.name == 'auth' ? authMfaSecretUri : ''
+    resendSecretUri: service.name == 'auth' ? authResendSecretUri : ''
+    resendFrom: service.name == 'auth' ? resendFrom : ''
   }
 }]
 
 output authUrl string = authUrl
 output projectsUrl string = projectsUrl
-output backlogUrl string = 'https://${resourcePrefix}-backlog.${environment.properties.defaultDomain}'
+output backlogUrl string = backlogUrl

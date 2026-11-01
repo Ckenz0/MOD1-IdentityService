@@ -1,6 +1,13 @@
 # Integração com autenticação
 
-Serviço candidato `0.2.0`. Caue mantém identidade/tokens; Brian mantém projetos, equipes e papéis por projeto; Igor mantém backlog. Cada serviço valida o token e aplica a autorização do seu domínio. Nenhum serviço deve consultar diretamente tabelas de outro.
+Serviço `0.4.0` preparado para release. Caue mantém identidade/tokens; Brian mantém projetos, equipes e papéis por projeto; Igor mantém backlog. Cada serviço valida o token e aplica a autorização do seu domínio. Nenhum serviço deve consultar diretamente tabelas de outro.
+
+O contrato atual de sessões, renovação, revogação, recuperação, MFA e diretório
+consentido está em [security-and-recovery.md](security-and-recovery.md).
+O transporte e os limites de destinatário estão em [resend.md](resend.md).
+Esses contratos substituem as limitações das versões 0.2/0.3: migração
+administrativa explícita é necessária; consumidores devem consultar `/auth/me`
+com o mesmo Bearer para observar o estado atual, além de validar RS256/JWKS.
 
 ## Configuração dos consumidores
 
@@ -15,7 +22,7 @@ Serviço candidato `0.2.0`. Caue mantém identidade/tokens; Brian mantém projet
 
 ## Obter acesso
 
-O MVP permite cadastro público com login imediato por `POST /auth/register`, JSON com `display_name`, `email` e `password`. Nome é aparado e deve ter 1 a 120 caracteres; e-mail válido é aparado/normalizado; senha literal segue a política pública (12 a 128 caracteres por padrão). Outros campos são recusados. Confirmação de senha é uma validação do frontend e não é enviada à API.
+O serviço permite cadastro público por `POST /auth/register`, JSON com `display_name`, `email` e `password`. Nome é aparado e deve ter 1 a 120 caracteres; e-mail válido é aparado/normalizado; senha literal segue a política pública (12 a 128 caracteres por padrão). Outros campos são recusados. Confirmação de senha é uma validação do frontend e não é enviada à API.
 
 Cadastro novo e e-mail já existente recebem o mesmo **202**, `Cache-Control: no-store` e `{"message":"If this email is available, the account is ready. Try signing in."}`. A resposta não contém UUID, dados da conta ou token. Duplicidade nunca altera senha, nome ou situação da conta anterior. Dados inválidos retornam 422 sem ecoar os valores enviados; falha de banco retorna 503. Depois, o usuário faz login normalmente.
 
@@ -42,9 +49,20 @@ with httpx.Client(timeout=5) as client:
     print(identity.json())
 ```
 
-Resposta de login: `access_token`, `token_type: "bearer"`, `expires_in: 1800` (TTL padrão de 30 minutos), `Cache-Control: no-store`. Envie `Authorization: Bearer <JWT>` ao serviço de destino. Senha errada, conta inexistente e inativa retornam o mesmo 401: `{"detail":"Invalid credentials"}`, com `WWW-Authenticate: Bearer`. Formulário incompleto retorna 422. O cliente não pode escolher as claims.
+Login concluído retorna `access_token`, `token_type: "bearer"`, `expires_in`,
+`refresh_token`, `session_id`, `idle_expires_at` e `absolute_expires_at`, com
+`Cache-Control: no-store`.
+Com MFA ativo, a resposta inicial é um desafio temporário: o cliente precisa
+verificar `/auth/mfa/verify` antes de receber tokens. O exemplo acima cobre login
+sem MFA. Envie `Authorization: Bearer <JWT>` ao serviço de destino. Senha errada,
+conta inexistente/inativa ou bloqueada recebem erro genérico. Formulário incompleto
+retorna 422; o cliente não pode escolher claims. Confira os campos em `/openapi.json`.
 
-`GET /auth/me` retorna apenas `id`, `email`, `display_name`, `is_active`, `created_at` UTC ISO 8601. Token ausente, inválido, usuário inexistente/inativo retornam 401 com `{"detail":"Invalid authentication credentials"}` e cabeçalho Bearer. Falha de banco retorna 503 genérico.
+`GET /auth/me` informa a identidade atual e verifica sessão, revogação e conta
+ativa. Seus campos atuais são definidos em `/openapi.json`; consumidores devem
+validar que `id` corresponde ao `sub` e `is_active` é true. Token ausente,
+inválido, revogado ou sessão/conta indisponível para uso retorna 401 com cabeçalho
+Bearer; falha de dependência retorna 503 genérico.
 
 `GET /.well-known/jwks.json` é público e contém somente `kty`, `use`, `alg`, `kid`, `n`, `e`; nunca contém chave privada. `/health/live` retorna 200 `{"status":"ok"}` sem depender do banco. `/health/ready` confirma a tabela de usuários; retorna 200 `{"status":"ready"}` ou 503 `{"status":"unavailable"}`.
 
@@ -69,15 +87,16 @@ Todas as respostas dessas duas rotas incluem `Cache-Control: no-store`.
 O UPDATE verifica UUID, hash anterior e conta ativa na própria instrução SQL;
 duas trocas simultâneas usando a mesma senha anterior não podem ambas gravar.
 Um conflito recebe o mesmo 400 e exige nova autenticação/verificação pelo usuário.
-Não há migração ou DDL para esta versão. Runtime precisa de UPDATE em
-`password_hash` apenas em `mod1_identity.users`; veja as concessões administrativas
-em [database-neon.md](database-neon.md). Nenhuma concessão remota é automática.
+Esta versão exige migração explícita para sessões, recuperação e MFA; startup
+não executa DDL. Runtime acessa somente seu schema, incluindo tabelas de sessão e
+auditoria; veja as concessões administrativas em [database-neon.md](database-neon.md)
+e [security-and-recovery.md](security-and-recovery.md). Nenhuma concessão remota é automática.
 
 Após sucesso, o frontend limpa as senhas, encerra a sessão local e exige novo login.
-Isso não revoga JWTs já emitidos: permanecem utilizáveis até expirar, inclusive em
-`/auth/me` e nos consumidores, com TTL residual de até 30 minutos por padrão
-(`ACCESS_TOKEN_EXPIRE_MINUTES`, mais tolerância de relógio do consumidor).
-Refresh e revogação continuam pendentes.
+Troca e reset de senha revogam todas as sessões, inclusive a atual. `/auth/me`
+recusa seu uso; Projetos e Backlog verificam esse estado online por padrão.
+Validadores que consultam apenas assinatura/expiração continuam sujeitos ao TTL
+residual. Refresh e revogação já fazem parte do contrato 0.4.0.
 
 ## Validar no seu serviço
 
@@ -126,8 +145,15 @@ Use `--public-key-path auth-public.pem` em lugar de `--jwks-url`. Com a chave j�
 
 ## Limites de autorização e revogação
 
-JWT identifica o usuário; não concede acesso global aos projetos. Os papéis PO, PM/ScrumMaster e desenvolvedor/estudante serão definidos por projeto no serviço de Brian. As verificações do backlog devem respeitar essa autorização, com timeout e recusa se não puderem determiná-la.
+JWT identifica o usuário; não concede acesso global aos projetos. Papéis fixos e
+personalizados, equipes e concessões são definidos por projeto no serviço de
+Brian. Backlog confirma permissões em `/access/v2`, com timeout e recusa se não
+puder determinar autorização.
 
-Conta desativada perde acesso imediato a login e `/auth/me`. Tokens já emitidos continuam válidos em consumidores offline até expirar. `jti` identifica o token; não implementa uma lista de revogação. O MVP tem uma chave ativa e não oferece refresh tokens, login social, recuperação de senha, tokens de máquina ou rotação com sobreposição. Login próprio não significa servidor OAuth/OIDC completo.
+Conta desativada perde acesso a login e `/auth/me`. Sessões e `jti` podem ser
+revogados; refresh opaco é rotativo e reutilização revoga a família. Tokens ainda
+podem passar em consumidores offline até expirar: validar assinatura não substitui
+verificar sessão atual. Login social, tokens de máquina e rotação de chaves com
+sobreposição não são oferecidos. Login próprio não significa servidor OAuth/OIDC completo.
 
 Para encerrar a pendência dos grupos: publicar uma URL HTTPS acessível, informar issuer/audience/JWKS, criar contas individuais, entregar credenciais pelo responsável e executar login/validação a partir de outra máquina.

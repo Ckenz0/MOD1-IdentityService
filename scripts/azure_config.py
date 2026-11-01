@@ -14,6 +14,11 @@ SECRET_NAMES = {
     "backlogDatabaseSecretUri": "backlog-database-url",
     "jwtKeySecretUri": "identity-jwt-private-key",
 }
+OPTIONAL_SECRET_NAMES = {
+    "authMfaSecretUri": "identity-mfa-encryption-key",
+    "authResendSecretUri": "identity-resend-api-key",
+}
+OPTIONAL_FIELDS = {*OPTIONAL_SECRET_NAMES, "resendFrom"}
 IMAGE_NAMES = ("authImage", "projectsImage", "backlogImage")
 FIELDS = {
     "resourcePrefix",
@@ -27,8 +32,10 @@ FIELDS = {
 
 
 def write_parameters(values: dict[str, str], destination: Path) -> None:
-    if set(values) != FIELDS or any(not isinstance(v, str) for v in values.values()):
-        raise ValueError("Expected exactly the documented deployment reference fields")
+    if not FIELDS <= set(values) <= FIELDS | OPTIONAL_FIELDS or any(
+        not isinstance(v, str) for v in values.values()
+    ):
+        raise ValueError("Expected the documented deployment reference fields")
     patterns = {
         "resourcePrefix": r"[a-z][a-z0-9-]{2,14}",
         "environmentName": r"[a-z][a-z0-9-]{2,31}",
@@ -63,10 +70,17 @@ def write_parameters(values: dict[str, str], destination: Path) -> None:
             values[field],
         ):
             raise ValueError(f"Invalid {field}: expected an immutable image in this registry")
-    for field, secret_name in SECRET_NAMES.items():
+    for field, secret_name in (SECRET_NAMES | OPTIONAL_SECRET_NAMES).items():
+        if field in OPTIONAL_SECRET_NAMES and not values.get(field):
+            continue
         expected = f"https://{values['vaultName']}.vault.azure.net/secrets/{secret_name}/"
         if not re.fullmatch(re.escape(expected) + r"[a-f0-9]{32}", values[field]):
             raise ValueError(f"Invalid {field}: expected its versioned secret in this vault")
+    sender = values.get("resendFrom", "")
+    if bool(values.get("authResendSecretUri")) != bool(sender):
+        raise ValueError("Configure the Resend secret reference and sender together")
+    if sender and (not sender.strip() or any(ord(c) < 32 or ord(c) == 127 for c in sender)):
+        raise ValueError("Invalid Resend sender")
     content = {
         "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
         "contentVersion": "1.0.0.0",

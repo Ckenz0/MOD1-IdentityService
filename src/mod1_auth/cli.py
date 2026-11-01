@@ -19,6 +19,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Administracao local da autenticacao")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="Preparar schema e chave persistente")
+    commands.add_parser("migrate", help="Migrar schema explicitamente preservando registros")
+    administrator = commands.add_parser("set-admin", help="Definir administrador global local")
+    administrator.add_argument("--user-id", type=UUID, required=True)
+    admin = administrator.add_mutually_exclusive_group(required=True)
+    admin.add_argument("--admin", dest="admin", action="store_true")
+    admin.add_argument("--no-admin", dest="admin", action="store_false")
     create = commands.add_parser("create-user", help="Criar conta individual")
     create.add_argument("--email", required=True)
     create.add_argument("--name", required=True)
@@ -35,7 +41,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             settings.database_url.get_secret_value(), schema=settings.database_schema
         )
         try:
-            if args.command == "init":
+            if args.command in ("init", "migrate"):
                 try:
                     generate_private_key(settings.jwt_private_key_path)
                 except FileExistsError:
@@ -46,6 +52,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 0
             with create_session_factory(engine)() as session:
                 users = UserService(UserRepository(session), settings.password_min_length)
+                if args.command == "set-admin":
+                    repository = UserRepository(session)
+                    if repository.get_by_id(args.user_id) is None:
+                        raise UserNotFoundError()
+                    with repository.identity.atomic():
+                        account = repository.identity.account(args.user_id)
+                        account["is_admin"] = args.admin
+                        repository.identity.save_account(args.user_id, account)
+                        repository.identity.audit(None, str(args.user_id), "bootstrap_admin")
+                    print("Administrador global atualizado.")
+                    return 0
                 if args.command == "create-user":
                     password = getpass.getpass(
                         f"Senha ({settings.password_min_length} a 128 caracteres): "

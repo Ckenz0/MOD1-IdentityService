@@ -26,7 +26,15 @@ def test_login_identity_and_public_jwks(client, user):
     token = response.json()["access_token"]
     me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200
-    assert set(me.json()) == {"id", "email", "display_name", "is_active", "created_at"}
+    assert set(me.json()) == {
+        "id",
+        "email",
+        "display_name",
+        "is_active",
+        "created_at",
+        "is_admin",
+        "email_verified",
+    }
     assert me.json()["id"] == str(user.id)
     assert me.json()["email"] == "caue@example.com"
     assert client.get("/.well-known/jwks.json").status_code == 200

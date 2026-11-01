@@ -3,12 +3,13 @@ from uuid import UUID, uuid4
 
 from email_validator import validate_email
 
-from mod1_auth.domain import InvalidCredentialsError, PasswordChangeRejectedError, User
+from mod1_auth.credential_service import CredentialService
+from mod1_auth.domain import PasswordChangeRejectedError, User
+from mod1_auth.identity_service import IdentityService, MFAChallenge
 from mod1_auth.repositories import UserRepository
 from mod1_auth.security import (
     TokenResponse,
     TokenService,
-    TokenValidationError,
     hash_password,
     verify_password,
 )
@@ -54,6 +55,8 @@ class AuthService:
         self.repository = repository
         self.tokens = tokens
         self.password_min_length = password_min_length
+        self.identity = IdentityService(repository, tokens)
+        self.credentials = CredentialService(self.identity)
 
     def change_password(self, token: str, current_password: str, new_password: str) -> None:
         user = self.current_user(token)
@@ -69,19 +72,8 @@ class AuthService:
         ):
             raise PasswordChangeRejectedError()
 
-    def authenticate(self, email: str, password: str) -> TokenResponse:
-        user = self.repository.get_by_email(normalize_email(email))
-        valid = verify_password(password, user.password_hash if user else _dummy_password_hash)
-        if user is None or not valid or not user.is_active:
-            raise InvalidCredentialsError("Invalid credentials")
-        return self.tokens.issue(user.id)
+    def authenticate(self, email: str, password: str) -> TokenResponse | MFAChallenge:
+        return self.identity.login(email, password, _dummy_password_hash)
 
     def current_user(self, token: str) -> User:
-        try:
-            claims = self.tokens.verify(token)
-        except TokenValidationError as exc:
-            raise InvalidCredentialsError("Invalid authentication credentials") from exc
-        user = self.repository.get_by_id(claims.sub)
-        if user is None or not user.is_active:
-            raise InvalidCredentialsError("Invalid authentication credentials")
-        return user
+        return self.identity.current(token)

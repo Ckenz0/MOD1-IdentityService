@@ -78,8 +78,8 @@ def test_change_persists_literal_password_and_preserves_identity(client, user, e
         assert changed.is_active is True
         assert changed.password_hash != user.password_hash
         assert verify_password(NEW, changed.password_hash)
-    # This feature deliberately retains existing JWT TTL; no revocation claim.
-    assert client.get("/auth/me", headers=headers).status_code == 200
+    # Password changes now intentionally revoke every session, including the current one.
+    assert client.get("/auth/me", headers=headers).status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -216,6 +216,8 @@ def test_configured_minimum_applies_to_change(client, user, settings):
 def test_maximum_length_password_can_be_used_for_next_change(client, user):
     headers = authorization(client, user)
     for current, new in [(CURRENT, "ç" * 128), ("ç" * 128, NEW)]:
+        token = client.post("/auth/token", data={"username": user.email, "password": current})
+        headers = {"Authorization": "Bearer " + token.json()["access_token"]}
         response = client.post(
             "/auth/password",
             headers=headers,
@@ -226,7 +228,7 @@ def test_maximum_length_password_can_be_used_for_next_change(client, user):
 
 def test_openapi_describes_password_authentication_and_empty_success(client):
     schema = client.get("/openapi.json").json()
-    assert schema["info"]["version"] == "0.3.0"
+    assert schema["info"]["version"] == "0.4.0"
     assert not schema["paths"]["/auth/password-policy"]["get"].get("security")
     change = schema["paths"]["/auth/password"]["post"]
     assert change["security"] == [{"OAuth2PasswordBearer": []}]

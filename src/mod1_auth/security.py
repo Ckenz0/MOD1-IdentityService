@@ -36,6 +36,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: str | None = None
+    session_id: UUID | None = None
+    idle_expires_at: datetime | None = None
+    absolute_expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,7 @@ class TokenClaims:
     iat: int
     exp: int
     jti: UUID
+    sid: UUID | None = None
 
 
 class TokenValidationError(Exception):
@@ -103,7 +108,9 @@ class TokenService:
         self.keys = keys
         self.settings = settings
 
-    def issue(self, user_id: UUID, now: datetime | None = None) -> TokenResponse:
+    def issue(
+        self, user_id: UUID, now: datetime | None = None, *, session_id: UUID | None = None
+    ) -> TokenResponse:
         issued = int((now or datetime.now(UTC)).timestamp())
         ttl = self.settings.access_token_expire_minutes * 60
         claims = {
@@ -114,6 +121,8 @@ class TokenService:
             "exp": issued + ttl,
             "jti": str(uuid4()),
         }
+        if session_id is not None:
+            claims["sid"] = str(session_id)
         token = jwt.encode(
             claims,
             self.keys.private_key,
@@ -153,6 +162,7 @@ class TokenService:
                 claims["iat"],
                 claims["exp"],
                 UUID(claims["jti"]),
+                UUID(claims["sid"]) if claims.get("sid") is not None else None,
             )
         except (jwt.PyJWTError, ValueError, TypeError, AttributeError) as exc:
             raise TokenValidationError("Invalid authentication token") from exc

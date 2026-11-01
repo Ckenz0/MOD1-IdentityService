@@ -30,6 +30,7 @@ class Profile(BaseModel):
     seniority: Seniority = "not_informed"
     weekly_availability_hours: int = 0
     skills: list[Skill] = Field(default_factory=list)
+    share_for_recommendations: bool = False
 
 
 class ProfilePatch(BaseModel):
@@ -40,6 +41,7 @@ class ProfilePatch(BaseModel):
     seniority: Seniority = "not_informed"
     weekly_availability_hours: int = Field(default=0, ge=0, le=168)
     skills: Skills = Field(default_factory=list)
+    share_for_recommendations: bool = False
 
     @field_validator("skills")
     @classmethod
