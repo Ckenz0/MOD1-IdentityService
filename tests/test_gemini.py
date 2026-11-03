@@ -91,6 +91,8 @@ def test_gemini_request_and_empty_response(settings):
         {"gemini_api_base_url": "https://generativelanguage.googleapis.com/v1beta#fragment"},
         {"gemini_api_base_url": "https://generativelanguage.googleapis.com/v1beta/../evil"},
         {"gemini_api_base_url": "http://127.0.0.1:8080/%2e%2e"},
+        {"gemini_api_base_url": "http://127.0.0.1:bad/v1beta"},
+        {"gemini_api_base_url": "http://127.0.0.1:65536/v1beta"},
         {"gemini_model": "models/gemini"},
         {"gemini_model": "gemini?key=secret"},
         {"gemini_model": "gemini%2Fsecret"},
@@ -223,4 +225,42 @@ def test_gemini_valid_typed_suggestion_and_thought_filter(settings):
             httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
         ).generate({})
         == output
+    )
+
+
+@pytest.mark.parametrize("location", ["promptFeedback", "candidate"])
+def test_gemini_rejects_blocked_rating_even_with_stop(settings, location):
+    payload = envelope()
+    if location == "promptFeedback":
+        payload["promptFeedback"] = {"safetyRatings": [{"blocked": True}]}
+    else:
+        payload["candidates"][0]["safetyRatings"] = [{"blocked": True}]
+    with pytest.raises(IdentityError) as error:
+        AIAdapter(
+            configure(settings),
+            httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        ).generate({})
+    assert error.value.status == 503
+
+
+def test_gemini_rejects_non_boolean_thought_marker(settings):
+    payload = envelope()
+    payload["candidates"][0]["content"]["parts"][0]["thought"] = "true"
+    with pytest.raises(IdentityError) as error:
+        AIAdapter(
+            configure(settings),
+            httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        ).generate({})
+    assert error.value.status == 503
+
+
+def test_gemini_accepts_final_text_with_thought_signature(settings):
+    payload = envelope()
+    payload["candidates"][0]["content"]["parts"][0]["thoughtSignature"] = "synthetic-signature"
+    assert (
+        AIAdapter(
+            configure(settings),
+            httpx.MockTransport(lambda request: httpx.Response(200, json=payload)),
+        ).generate({})
+        == proposal()
     )

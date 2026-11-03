@@ -74,10 +74,15 @@ chamada de nuvem, dados de produção ou publicação. Exercitam request oficial
 saída válida/vazia, dados inventados, controle administrativo, quota 429, 5xx,
 timeout, redirects, JSON inválido/truncado, limites e configuração maliciosa.
 
-Em 03/11/2026 a suíte completa registrou **330 aprovados e 8 ignorados**
+Em 03/11/2026, após revisão independente, a suíte completa registrou
+**336 aprovados e 8 ignorados**
 (PostgreSQL sem configuração local descartável). Ruff, verificação de formato,
 mypy e fronteiras AST passaram. O baseline direcionado tinha 17 testes aprovados;
 os novos casos falharam antes da implementação e passaram após a mudança.
+As regressões da revisão cobrem bloqueios em `safetyRatings` mesmo com STOP,
+portas HTTP inválidas, marcador `thought` booleano e metadado `thoughtSignature`
+em texto final. O adaptador recebe apenas um transporte injetável e cria cliente
+próprio, sem herdar autenticação, cookies ou headers de clientes dos consumidores.
 
 ```powershell
 .venv/Scripts/python.exe -m pytest -q

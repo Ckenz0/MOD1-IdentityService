@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_gemini_url(cls, value: str) -> str:
         parsed = urlsplit(value)
+        port = parsed.port  # Validate syntax/range for both HTTPS and loopback HTTP.
         if (
             parsed.username is not None
             or parsed.password is not None
@@ -78,7 +79,7 @@ class Settings(BaseSettings):
                 (
                     parsed.scheme == "https"
                     and parsed.hostname == "generativelanguage.googleapis.com"
-                    and parsed.port in (None, 443)
+                    and port in (None, 443)
                 )
                 or (
                     parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost", "::1")

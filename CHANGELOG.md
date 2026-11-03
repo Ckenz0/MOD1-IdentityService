@@ -19,6 +19,8 @@
 - Chave Gemini somente no backend e no header do endpoint oficial HTTPS ou mock
   HTTP loopback; erros sanitizados, sem redirects ou proxies implícitos. IDs e
   evidências continuam restritos ao contexto autorizado do administrador.
+- Bloqueios `safetyRatings` são recusados mesmo com término STOP; portas HTTP
+  inválidas e marcadores de raciocínio que não sejam booleanos também são recusados.
 
 ## 0.4.0 — preparação de release, 2026-11-01
 

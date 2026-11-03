@@ -75,14 +75,21 @@ class GeminiAdapter:
 
     @staticmethod
     def _parse(payload: Any) -> dict[str, Any]:
-        if not isinstance(payload, dict) or payload.get("promptFeedback", {}).get("blockReason"):
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid response")
+        feedback = payload.get("promptFeedback", {})
+        if not isinstance(feedback, dict) or feedback.get("blockReason"):
             raise ValueError("Blocked or invalid response")
+        if any(rating.get("blocked") for rating in feedback.get("safetyRatings", [])):
+            raise ValueError("Blocked response")
         candidates = payload.get("candidates")
         if not isinstance(candidates, list) or len(candidates) != 1:
             raise ValueError("Invalid candidates")
         candidate = candidates[0]
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Incomplete generation")
+        if any(rating.get("blocked") for rating in candidate.get("safetyRatings", [])):
+            raise ValueError("Blocked response")
         parts = candidate.get("content", {}).get("parts")
         if not isinstance(parts, list) or not parts:
             raise ValueError("Missing final text")
@@ -90,9 +97,13 @@ class GeminiAdapter:
         for part in parts:
             if not isinstance(part, dict) or "functionCall" in part:
                 raise ValueError("Invalid response part")
+            if "thought" in part and not isinstance(part["thought"], bool):
+                raise ValueError("Invalid thought marker")
             if part.get("thought") is True:
                 continue
-            if set(part) - {"text", "thought"} or not isinstance(part.get("text"), str):
+            if set(part) - {"text", "thought", "thoughtSignature"} or not isinstance(
+                part.get("text"), str
+            ):
                 raise ValueError("Invalid text part")
             texts.append(part["text"])
         if not texts:
