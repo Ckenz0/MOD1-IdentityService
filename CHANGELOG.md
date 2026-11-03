@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 — candidato local, 2026-11-03
+
+### Added
+
+- Provedor Gemini opt-in para análise de acessos, com resposta JSON estruturada,
+  contexto limitado e transporte sem retries, ferramentas ou fallback. O padrão
+  HTTP genérico continua disponível e desabilitado sem configuração explícita.
+- Metadados reais de provedor/modelo e sugestões vazias quando não existe ação
+  fundamentada; aprovação vazia retorna 409 sem efeitos. Aprovação permanece
+  humana e nunca concede/revoga acesso automaticamente.
+- Testes HTTP controlados para contrato, falhas, segurança e persistência. Veja
+  [configuração Gemini e limites da validação](docs/gemini.md). Nenhuma chamada
+  real ao Gemini foi executada nesta entrega; sem push, merge ou deploy.
+
+### Security
+
+- Chave Gemini somente no backend e no header do endpoint oficial HTTPS ou mock
+  HTTP loopback; erros sanitizados, sem redirects ou proxies implícitos. IDs e
+  evidências continuam restritos ao contexto autorizado do administrador.
+
 ## 0.4.0 — preparação de release, 2026-11-01
 
 ### Added

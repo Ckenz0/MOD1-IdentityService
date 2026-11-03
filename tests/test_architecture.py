@@ -103,6 +103,20 @@ def belongs_to(name, modules):
                 "mod1_auth.credential_service",
             ),
         ),
+        (
+            "gemini_adapter",
+            (
+                "fastapi",
+                "starlette",
+                "sqlalchemy",
+                "mod1_auth.api",
+                "mod1_auth.dependencies",
+                "mod1_auth.main",
+                "mod1_auth.database",
+                "mod1_auth.repositories",
+                "mod1_auth.identity_repository",
+            ),
+        ),
     ],
 )
 def test_layer_dependencies(module, forbidden):

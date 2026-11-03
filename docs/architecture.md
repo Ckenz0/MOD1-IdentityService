@@ -14,6 +14,7 @@ flowchart TD
     Dependencies --> Database[database.py: sessões e readiness]
     Application --> Domain[domain.py, profiles.py e recommendations.py: domínio]
     Application --> AI[ai_adapter.py: HTTP estruturado configurável]
+    AI --> Gemini[gemini_adapter.py: Gemini opt-in]
     Application --> Repositories
     Application --> Security[security.py: Argon2 e JWT RS256]
     Repositories --> Domain
@@ -33,6 +34,11 @@ O transporte transacional real escolhido é o Resend. `resend_adapter.py` perten
 à infraestrutura, chamado por `mail_adapter.py`, sem banco ou dependências de
 rotas. Configuração e contrato estão em [resend.md](resend.md); nenhuma chave
 vai para o frontend.
+
+`gemini_adapter.py` também pertence à infraestrutura, selecionado por
+`ai_adapter.py` somente com `AI_PROVIDER=gemini`. A aplicação recebe o mesmo
+contrato de recomendações e mantém autorização, evidências e decisão humana.
+Configuração, limites e validação controlada estão em [gemini.md](gemini.md).
 
 | Camada | Módulos | Responsabilidade |
 | --- | --- | --- |
