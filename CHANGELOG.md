@@ -18,6 +18,8 @@
 
 ### Security
 
+- Atualiza dnspython para 2.9.2 e opentelemetry-api para 1.45.2, corrigindo os
+  alertas GHSA-vvf4-9x63-8xvv e GHSA-mf5v-w3w3-f6cg no lock de dependências.
 - Chave Gemini somente no backend e no header do endpoint oficial HTTPS ou mock
   HTTP loopback; erros sanitizados, sem redirects ou proxies implícitos. IDs e
   evidências continuam restritos ao contexto autorizado do administrador.
