@@ -56,7 +56,23 @@ do e-mail e o cooldown também se aplica ao erro. Sem transporte configurado,
 503 permanece uniforme antes da busca da conta. A resposta pública não garante
 entrega ou existência de conta. Falhas autenticadas de confirmação retornam 503.
 
-## Validação
+## Produção — 15/11/2026
+
+O domínio `ckenzo.me` está verificado. Produção usa
+`Módulo 1 <noreply@ckenzo.me>`, `MAIL_PROVIDER=resend` e
+`LOCAL_MAILBOX_ENABLED=false`, com chave somente no backend. O teste de envio
+do domínio foi recebido e confirmado pelo usuário em 14/11.
+
+Em 15/11, confirmação e recuperação completas passaram em Edge com Resend real
+e três APIs temporárias, usando bancos SQLite isolados. Foram enviadas duas
+mensagens ao destinatário configurado; listagem e leitura pela API do Resend
+recuperaram os links e reportaram entrega pelo servidor destinatário.
+Os links foram exercitados pelo navegador, com fragmento removido, rejeição de
+reuso, senha anterior recusada, sessões anteriores revogadas nas três APIs e
+MFA preservado. Não houve alteração de dados de produção nem inspeção humana
+da caixa nessa rodada. [Evidência reproduzível](resend-verification.md).
+
+## Validação controlada e histórica
 
 `tests/test_resend_mail.py` exercita o contrato com transporte HTTP controlado,
 sem envio externo: Bearer/User-Agent, seleção de transporte, idempotência,

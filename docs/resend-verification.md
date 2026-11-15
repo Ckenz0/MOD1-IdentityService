@@ -1,4 +1,30 @@
-# Verificação do transporte Resend — 31/10/2026
+# Verificação do transporte Resend
+
+## Fluxos completos com Resend real — 15/11/2026
+
+Confirmação e recuperação de senha passaram com Edge, três APIs temporárias e
+bancos SQLite isolados. O teste opt-in `tests/test_resend_real_api.py` fica no
+[repositório Frontend](https://github.com/Ckenz0/MOD1-WebFrontend) e reutiliza o
+fluxo avançado de conta. Exige `RUN_RESEND_E2E=1`, `RESEND_API_KEY`,
+`RESEND_FROM`, `RESEND_TEST_TO` e os caminhos dos três backends. Segredos são
+fornecidos pelo ambiente privado, nunca pelo navegador ou documentação.
+
+- Duas mensagens reais foram enviadas ao destinatário configurado. `GET /emails`
+  e `GET /emails/{id}` recuperaram as mensagens e os links, com `last_event`
+  reportando `delivered`, `opened` ou `clicked`.
+- Os links retornados pelo provedor foram usados no navegador. Confirmação e
+  reset recusaram replay com 400; o fragmento foi removido da URL.
+- A senha anterior foi recusada com 401; o JWT anterior foi recusado nas três
+  APIs depois do reset. MFA permaneceu ativo.
+- Nenhum dado de produção foi alterado. O status de entrega é reportado pelo
+  provedor; essa rodada não inclui inspeção humana da caixa de entrada.
+
+O domínio `ckenzo.me` está verificado e o remetente de produção é
+`Módulo 1 <noreply@ckenzo.me>`, com caixa local desativada.
+[Versão e deploy](final-delivery.md) e
+[reprodução no Frontend](https://github.com/Ckenz0/MOD1-WebFrontend/blob/main/docs/email-acceptance.md).
+
+## Transporte controlado — 31/10/2026
 
 Escopo local, sem deploy ou envio externo. Base `f837559`.
 
@@ -31,6 +57,6 @@ as limitações operacionais das US-006/011. A evidência não comprova deploy.
 
 A integração externa de revisão (US-096) continua dependendo do contrato real do
 outro grupo; o ingresso proposto já existente não foi habilitado ou apresentado
-como compatível. A IA permanece pendente por orientação do usuário.
+como compatível. Naquela etapa, a IA permanecia pendente; o estado publicado posterior está no [registro de entrega](final-delivery.md).
 
 Contrato e operação: [resend.md](resend.md).

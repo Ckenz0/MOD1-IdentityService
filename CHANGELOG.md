@@ -2,6 +2,9 @@
 
 ## 0.5.0 — 2026-11-15
 
+Publicada em produção. [Commit, deploy e evidências](docs/final-delivery.md).
+Entradas anteriores preservam o estado histórico de suas próprias datas.
+
 ### Added
 
 - Pipeline incremental com segredo Gemini, remetente no domínio verificado e preservação das origens CORS dos outros módulos.

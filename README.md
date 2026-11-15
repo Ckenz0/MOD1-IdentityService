@@ -1,14 +1,15 @@
 # Autenticação
 
-## Identidade 0.4.0 — preparação de release
+## Identidade 0.5.0 — publicada em 15/11/2026
 
 GET/PATCH `/auth/profile` permite editar o próprio resumo, senioridade,
 competências com domínio e disponibilidade semanal. Perfil é privado à conta;
 não representa alocação de equipe. [Contrato e preparação](docs/profile.md).
 Instalação anterior exige `init` administrativo explícito para criar a nova tabela
-e grants na role runtime; nenhum preparo remoto foi executado.
+e grants na role runtime. A instalação de produção foi preparada e publicada;
+novas instalações continuam exigindo administração explícita.
 
-API Python/FastAPI para contas individuais, sessões, recuperação, MFA e login JWT RS256. Versão `0.4.0` preparada para publicação; este texto não comprova deploy. A execução pode usar Neon PostgreSQL ou PostgreSQL local com Docker.
+API Python/FastAPI para contas individuais, sessões, recuperação, MFA e login JWT RS256. Versão `0.5.0` implantada na Azure; veja o [registro de entrega de 15/11/2026](docs/final-delivery.md). A execução pode usar Neon PostgreSQL ou PostgreSQL local com Docker.
 
 Este repositório contém o serviço de identidade de Caue. Projetos/equipes/papéis por projeto e backlog são serviços separados de Brian e Igor. Consulte o [contrato de integração](docs/integration.md), o [guia com Neon](docs/database-neon.md) e a [operação Azure](docs/deploy-azure.md).
 
@@ -34,7 +35,7 @@ uv sync --locked
 uv run --locked python -m uvicorn mod1_auth.main:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
-O frontend fica no repositório separado [MOD1-Frontend](https://github.com/Ckenz0/MOD1-Frontend), servido em `http://127.0.0.1:5173`. Configure `CORS_ORIGINS=["http://127.0.0.1:5173"]`. Os dados das contas ficam no Neon; a chave privada persistente fica no host da API. SQLite continua sendo usado pelos testes rápidos.
+O frontend fica no repositório separado [MOD1-WebFrontend](https://github.com/Ckenz0/MOD1-WebFrontend), servido em `http://127.0.0.1:5173`. Configure `CORS_ORIGINS=["http://127.0.0.1:5173"]`. Os dados das contas ficam no Neon; a chave privada persistente fica no host da API. SQLite continua sendo usado pelos testes rápidos.
 
 O usuário pode criar a própria conta no frontend e entrar imediatamente. A rota pública `POST /auth/register` reutiliza a criação de usuários existente e preserva contas anteriores em caso de e-mail duplicado. Nome, e-mail e senha são validados pelo backend; confira o contrato em [docs/integration.md](docs/integration.md).
 
@@ -47,11 +48,18 @@ recomendações de anomalias dependem de provedor configurado e decisão humana.
 
 Envio real de recuperação/confirmação usa o [Resend](docs/resend.md): configure
 `MAIL_PROVIDER=resend`, `RESEND_API_KEY` e `RESEND_FROM` somente no backend.
-Um envio real de teste foi aceito e recebido, com confirmação do usuário. O
-remetente de teste `onboarding@resend.dev`, sem domínio verificado, restringe
-destinatários ao e-mail autorizado da conta. Os fluxos de recuperação/confirmação
-foram validados com HTTP controlado; esse envio de teste não valida seus links
-reais nem entrega geral. IA real permanece desabilitada.
+Produção usa o domínio verificado `ckenzo.me`, remetente
+`Módulo 1 <noreply@ckenzo.me>` e `LOCAL_MAILBOX_ENABLED=false`. Um envio de teste
+foi recebido e confirmado pelo usuário. Em 15/11, confirmação e recuperação com
+Resend real também passaram em navegador e três APIs temporárias: links
+retornados pelo provedor foram exercitados, com uso único, revogação de sessões
+e MFA preservados. Entrega foi reportada pelo provedor; essa rodada não incluiu
+inspeção humana da caixa de entrada. [Evidências](docs/resend-verification.md).
+
+Gemini real está configurado em produção com `AI_PROVIDER=gemini`,
+`AI_SIMULATED=false` e `GEMINI_MODEL=gemini-3.5-flash-lite`. A chamada real do
+adaptador de análise de acessos foi validada com dados sintéticos. A validação
+completa dos fluxos de IA continua por cenário; [contrato e limites](docs/gemini.md).
 
 ## Iniciar com Docker
 
@@ -112,7 +120,9 @@ Em Windows com Controle de Aplicativo que recuse lançadores de ambiente virtual
 | `CORS_ORIGINS` | lista JSON de origens HTTP(S) exatas, padrão `[]` |
 | `POSTGRES_PASSWORD` | apenas PostgreSQL de desenvolvimento/Compose |
 
-Não configure `*` em CORS; inclua a origem do frontend quando o módulo 6 integrar o navegador. APIs consumidoras não dependem de CORS. Não grave senhas, tokens, DSNs ou PEMs privados no Git, em logs ou na imagem.
+Não configure `*` em CORS. Produção permite as origens aprovadas do frontend M1,
+GitHubSync (Módulo 2), MackAI (Módulo 7) e localhost 5173; veja o
+[registro de entrega](docs/final-delivery.md). Chamadas entre backends não dependem de CORS. Não grave senhas, tokens, DSNs ou PEMs privados no Git, em logs ou na imagem.
 
 ## Verificar
 

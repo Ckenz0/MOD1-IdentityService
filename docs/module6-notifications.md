@@ -1,8 +1,9 @@
 # Contrato de notificações do Módulo 6
 
 Contrato consultado em 14/11/2026 no [OpenAPI do próprio BFF](https://software6-bff-2-cnbqhhgdcndzgwdx.chilecentral-01.azurewebsites.net/openapi.json).
-Este documento registra a integração externa; não afirma que existe um emissor
-automático implantado no Módulo 1.
+Este documento registra o contrato externo. Em 15/11/2026, os emissores de
+Backlog e Projetos estão implantados e ativos; Identidade não emite esses avisos.
+Veja [estado e limites da entrega](final-delivery.md).
 
 ## Publicação
 
@@ -30,13 +31,14 @@ Sucesso documentado: HTTP 200 com objeto `Notification`. Validação de entrada:
 HTTP 422. Outros erros operacionais e a semântica de duplicação não estão
 detalhados no OpenAPI consultado e precisam ser tratados sem presumir sucesso.
 
-## Limites da integração proposta
+## Limites da integração
 
 - CORS não é necessário para publicação entre backends. A URL do BFF não confirma
   a origem do frontend do Módulo 6.
-- O enum `source` não inclui `projects`, `auth` ou `modulo1`. `backlog` pode
-  identificar eventos do nosso Backlog; eventos de equipes/projetos precisam
-  de um mapeamento acordado, sem se apresentar como outro módulo.
+- O enum `source` não inclui `projects`, `auth` ou `modulo1`. A convenção adotada
+  nesta instalação usa `source=backlog` para eventos compartilhados do Módulo 1.
+  Projetos distingue os eventos por tipos `project.*` e prefixo `mod1:projects:`;
+  não foi acrescentado um novo valor ao enum do receptor.
 - O nome `event_id` não comprova deduplicação. Antes de habilitar reenvio
   automático, confirmar com o receptor como ele trata eventos repetidos e
   timeouts após persistência.
@@ -45,4 +47,7 @@ detalhados no OpenAPI consultado e precisam ser tratados sem presumir sucesso.
 - O primeiro teste real deve usar evento/projeto expressamente autorizados.
   Nenhuma notificação externa foi publicada durante a descoberta deste contrato.
 
-A implementação do emissor e seu catálogo estão nos guias de operação dos repositórios de [Backlog](https://github.com/igorcpds/MOD1-BacklogService/blob/main/docs/module6-notifications.md) e [Projetos](https://github.com/briankfreire/MOD1-ProjectsServices/blob/main/docs/module6-notifications.md). A publicação ativa somente a origem Backlog já aceita; Projetos aguarda a convenção de origem.
+A implementação do emissor e seu catálogo estão nos guias de operação dos repositórios de [Backlog](https://github.com/igorcpds/MOD1-BacklogService/blob/main/docs/module6-notifications.md) e [Projetos](https://github.com/briankfreire/MOD1-ProjectsServices/blob/main/docs/module6-notifications.md). Ambos os workers estão ativos com `source=backlog`. Um aviso real de teste com
+escopo de projeto foi aceito com HTTP 200; isso não comprova apresentação visual
+na Central nem o percurso completo de um evento de negócio pelo outbox de produção.
+Não há replay histórico nem anúncios globais.
