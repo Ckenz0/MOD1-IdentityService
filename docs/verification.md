@@ -1,5 +1,11 @@
 # Validação adicional — 31/10/2026, US locais
 
+## Estado publicado — 15/11/2026
+
+O [registro de entrega](final-delivery.md) reúne versões, execuções de deploy e
+limites atuais. As seções datadas abaixo preservam a validação histórica de
+cada etapa e não descrevem, isoladamente, a produção atual.
+
 Atualização posterior do transporte de e-mail: [verificação do Resend](resend-verification.md),
 com testes adicionais, revisão e distinção entre contrato controlado e envio real.
 

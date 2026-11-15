@@ -1,6 +1,6 @@
 # Gemini para análise de acessos
 
-O candidato local 0.5.0 inclui o adaptador Gemini na infraestrutura. A aplicação
+A versão 0.5.0 publicada inclui o adaptador Gemini na infraestrutura. A aplicação
 continua responsável por autorização, evidências, contexto e decisões; o domínio
 valida o formato. Não há mudança de schema, migração de dados ou concessão de
 acesso pela IA. Consulte também [a arquitetura](architecture.md).
@@ -67,7 +67,7 @@ continuam obrigatórios. Sem eventos relevantes, `evidence=[]` também é válid
 Essa proposta pode ser consultada ou rejeitada. Tentativa de aprovação retorna
 409 sem mudar status, versão, auditoria ou acessos.
 
-## Validação local e pendência real
+## Validação controlada — 03/11/2026
 
 Os testes usam SQLite temporário e `httpx.MockTransport`, sem chave real,
 chamada de nuvem, dados de produção ou publicação. Exercitam request oficial,
@@ -115,3 +115,12 @@ Os processos de demonstração e a configuração Azure foram preservados.
 Contrato oficial: [GenerateContent](https://ai.google.dev/api/generate-content),
 [modelo](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) e
 [preços e quotas](https://ai.google.dev/gemini-api/docs/pricing).
+
+## Configuração de produção — 15/11/2026
+
+A versão publicada está configurada com `AI_PROVIDER=gemini`,
+`AI_SIMULATED=false` e `GEMINI_MODEL=gemini-3.5-flash-lite`. A chave fica somente
+nos segredos do backend. Chamadas reais dos sete tipos, somando Identidade,
+Projetos e Backlog, retornaram HTTP 200 com contexto sintético autorizado.
+Essa evidência do transporte é separada da validação completa dos fluxos pelo
+navegador e da qualidade de cada cenário. Veja [a entrega publicada](final-delivery.md).

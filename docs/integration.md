@@ -1,6 +1,6 @@
 # Integração com autenticação
 
-Serviço `0.4.0` preparado para release. Caue mantém identidade/tokens; Brian mantém projetos, equipes e papéis por projeto; Igor mantém backlog. Cada serviço valida o token e aplica a autorização do seu domínio. Nenhum serviço deve consultar diretamente tabelas de outro.
+Serviço `0.5.0` publicado em 15/11/2026; veja [versões e evidências de produção](final-delivery.md). Caue mantém identidade/tokens; Brian mantém projetos, equipes e papéis por projeto; Igor mantém backlog. Cada serviço valida o token e aplica a autorização do seu domínio. Nenhum serviço deve consultar diretamente tabelas de outro.
 
 O contrato atual de sessões, renovação, revogação, recuperação, MFA e diretório
 consentido está em [security-and-recovery.md](security-and-recovery.md).
