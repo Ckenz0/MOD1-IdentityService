@@ -18,5 +18,5 @@ class AnomalyResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     summary: str = Field(min_length=1, max_length=2000)
     justification: str = Field(min_length=1, max_length=4000)
-    evidence: list[str] = Field(min_length=1, max_length=50)
-    suggestions: list[AnomalySuggestion] = Field(min_length=1, max_length=50)
+    evidence: list[str] = Field(max_length=50)
+    suggestions: list[AnomalySuggestion] = Field(max_length=50)

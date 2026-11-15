@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.5.0 — 2026-11-15
+
+### Added
+
+- Pipeline incremental com segredo Gemini, remetente no domínio verificado e preservação das origens CORS dos outros módulos.
+
+- Provedor Gemini opt-in para análise de acessos, com resposta JSON estruturada,
+  contexto limitado e transporte sem retries, ferramentas ou fallback. O padrão
+  HTTP genérico continua disponível e desabilitado sem configuração explícita.
+- Metadados reais de provedor/modelo e sugestões vazias quando não existe ação
+  fundamentada; aprovação vazia retorna 409 sem efeitos. Aprovação permanece
+  humana e nunca concede/revoga acesso automaticamente.
+- Testes HTTP controlados para contrato, falhas, segurança e persistência. Veja
+  [configuração Gemini e limites da validação](docs/gemini.md). O adaptador também foi
+  verificado com Gemini real; a validação completa dos fluxos continua por cenário.
+
+### Security
+
+- Atualiza dnspython para 2.9.2 e opentelemetry-api para 1.45.2, corrigindo os
+  alertas GHSA-vvf4-9x63-8xvv e GHSA-mf5v-w3w3-f6cg no lock de dependências.
+- Chave Gemini somente no backend e no header do endpoint oficial HTTPS ou mock
+  HTTP loopback; erros sanitizados, sem redirects ou proxies implícitos. IDs e
+  evidências continuam restritos ao contexto autorizado do administrador.
+- Bloqueios `safetyRatings` são recusados mesmo com término STOP; portas HTTP
+  inválidas e marcadores de raciocínio que não sejam booleanos também são recusados.
+
 ## 0.4.0 — preparação de release, 2026-11-01
 
 ### Added

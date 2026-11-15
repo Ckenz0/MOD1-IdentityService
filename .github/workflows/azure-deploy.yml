@@ -93,6 +93,7 @@ jobs:
         if: github.event_name == 'push' || inputs.deploy_revision
         env:
           IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
           RESEND_FROM: ${{ vars.RESEND_FROM }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -104,20 +105,4 @@ jobs:
           [[ "$FRONTEND_ORIGIN" =~ ^https://[a-z0-9.-]+$ ]]
           [[ -n "$MFA_ENCRYPTION_KEY" && -n "$RESEND_API_KEY" && -n "$RESEND_FROM" ]]
           python scripts/azure_identity_secrets.py
-          revision=$(az containerapp update --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
-            --image "$IMAGE_REFERENCE" --set-env-vars \
-            "FRONTEND_ORIGIN=$FRONTEND_ORIGIN" "LOCAL_MAILBOX_ENABLED=false" "MAIL_PROVIDER=resend" \
-            "RESEND_FROM=$RESEND_FROM" "RESEND_API_KEY=secretref:resend-api-key" \
-            "MFA_ENCRYPTION_KEY=secretref:mfa-encryption-key" --query properties.latestRevisionName --output tsv)
-          host=$(az containerapp show --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.configuration.ingress.fqdn --output tsv)
-          [[ "$host" =~ ^[a-z0-9.-]+\.azurecontainerapps\.io$ ]]
-          for attempt in $(seq 1 60); do
-            ready=$(az containerapp show --name "$AZURE_CONTAINER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.latestReadyRevisionName --output tsv)
-            if curl --fail --silent --show-error --max-time 15 "https://$host/health/ready" >/dev/null && [[ "$ready" == "$revision" ]]; then
-              printf 'Ready revision: %s\nURL: https://%s\n' "$revision" "$host" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo 'New revision did not become ready; inspect Container Apps system logs.' >&2
-          exit 1
+          python scripts/azure_runtime_config.py

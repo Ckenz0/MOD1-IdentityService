@@ -1,0 +1,17 @@
+{
+  "auth": [
+    "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io",
+    "http://localhost:5173",
+    "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net"
+  ],
+  "projects": [
+    "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io",
+    "http://localhost:5173",
+    "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net"
+  ],
+  "backlog": [
+    "https://mackai-conversas.calmfield-d7c6c49f.brazilsouth.azurecontainerapps.io",
+    "http://localhost:5173",
+    "https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net"
+  ]
+}

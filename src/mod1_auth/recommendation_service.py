@@ -69,9 +69,16 @@ class RecommendationService:
             created_at=iso(now),
             expires_at=iso(now + 86400),
             context_version=self.version(context),
-            model=self.identity.settings.ai_model,
-            provider="structured-http",
-            simulated=self.identity.settings.ai_simulated,
+            model=(
+                self.identity.settings.gemini_model
+                if self.identity.settings.ai_provider == "gemini"
+                else self.identity.settings.ai_model
+            ),
+            provider=self.identity.settings.ai_provider,
+            simulated=(
+                self.identity.settings.ai_provider != "gemini"
+                and self.identity.settings.ai_simulated
+            ),
         )
         with self.store.atomic():
             self.identity.admin(token)
@@ -90,6 +97,8 @@ class RecommendationService:
             record = self.get(token, rid)
             if record["version"] != expected or record["status"] != "pending":
                 raise IdentityError(409, "Recommendation decision conflicts")
+            if approve and not record["suggestions"]:
+                raise IdentityError(409, "Recommendation has no applicable suggestions")
             stale = record["context_version"] != self.version(self.context())
             from datetime import datetime
 

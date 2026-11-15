@@ -119,11 +119,45 @@ O gerador recusa imagens mutáveis, outro registro, origem não HTTPS e segredo 
 - HTTPS externo para as três APIs, mantendo a autenticação JWT da aplicação.
 - Issuer igual à URL HTTPS estável da identidade e audience `engenharia-software-api`.
 - JWKS da identidade para projetos/backlog; URL de projetos para autorização do backlog.
-- CORS com a origem exata do frontend, sem liberar previews automaticamente.
+- CORS com a origem exata do frontend e as origens adicionais aprovadas por serviço
+  em `deploy/azure/cors-origins.json`, sem liberar previews automaticamente.
 - Zero a uma réplica por API, probes independentes e portas alvo 8000/8001/8002.
 - Identidade em 0,5 vCPU/1 GiB; projetos/backlog em 0,25 vCPU/0,5 GiB, sujeitos à validação real de capacidade.
 
 A propagação inicial de RBAC pode levar algum tempo. Se a revisão não obtiver imagem/segredo, confira o erro nos logs e a atribuição no escopo correto antes de repetir a aplicação; não amplie a permissão para todo o vault como atalho.
+
+### Origens adicionais de navegador — módulos 2 e 7
+
+`deploy/azure/cors-origins.json` registra a origem pública do MackAI (Módulo 7),
+`http://localhost:5173` e a origem informada do serviço GitHub (Módulo 2), nas três
+APIs: Identidade (`auth`), Projetos (`projects`) e Backlog (`backlog`). A origem do Módulo 2 é
+`https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net`,
+sem a barra final ou caminho.
+O usuário autorizou também a preparação do Backlog para futuros consumidores.
+O módulo Bicep usa `union` para
+preservar `frontendOrigin` e evitar duplicatas; essa origem também continua
+sendo o endereço dos links de e-mail, independentemente do CORS adicional.
+
+Uma atualização operacional de `CORS_ORIGINS` deve combinar a lista existente
+com as origens aprovadas e preservar as demais configurações, imagens e segredos.
+Ela cria uma revisão da configuração da Container App. Confira a revisão pronta,
+saúde e preflights antes de declarar a liberação: `OPTIONS` com `Origin`,
+`Access-Control-Request-Method` e `Access-Control-Request-Headers` deve devolver
+o mesmo `Access-Control-Allow-Origin`, permitir o método e `Authorization`/
+`Content-Type`. Uma origem não aprovada deve continuar sem acesso CORS.
+
+O front MackAI usa `POST /auth/token`, `/auth/mfa/verify`, `/auth/refresh`,
+`/auth/logout`, `GET /auth/me` e `GET /projects`. As chamadas de servidor para
+JWKS, sessão e `/projects/{id}/access/v2` não precisam de CORS e continuam
+exigindo as mesmas regras de autenticação/autorização. Não altere JWT, audiência
+ou permissões para liberar uma origem. Guia do consumidor:
+[integração MackAI](https://github.com/gabrielmarinhorosa/MackAi-Conversa/blob/main/docs/integracao-outros-modulos.md).
+
+O endpoint de notificações do Módulo 6 é uma integração entre backends. Sua chave
+de integração fica em configuração privada do backend emissor, nunca no frontend
+ou na lista de origens. O endereço do BFF receptor não determina a origem do
+frontend do Módulo 6; se este consumir nossas APIs pelo navegador, sua origem
+precisa ser informada separadamente.
 
 ## 7. Publicar o frontend
 
@@ -250,3 +284,40 @@ pelos três serviços; startup não executa DDL.
 - [SWA Free](https://learn.microsoft.com/en-us/azure/static-web-apps/plans), [upload sem build](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration).
 - [OIDC GitHub/Azure](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect), [orçamentos](https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/tutorial-acm-create-budgets).
 - [TLS no Neon](https://neon.com/docs/connect/connect-securely).
+
+
+## Publicação de Gemini e notificações
+
+O workflow de publicação aplica `scripts/azure_runtime_config.py` após construir
+uma imagem imutável e passar nas verificações. O patch é restrito ao próprio app:
+segredos existentes, referências Key Vault, CORS, ingress, identidades, volumes
+RSA e configuração de autenticação são preservados. O helper aborta se detectar
+containers inesperados ou mudanças concorrentes na configuração.
+
+Configure `GEMINI_API_KEY` como secret do Environment `demo` nas três APIs.
+A publicação seleciona `AI_PROVIDER=gemini`, `AI_SIMULATED=false` e o modelo
+configurado pelo serviço. Na Identidade, `RESEND_FROM` usa o domínio verificado;
+MFA e a chave RSA continuam com seus valores e montagens existentes.
+
+No Backlog, configure também `MODULE6_KEY` como secret de `demo`, depois de criar
+explicitamente a tabela `backlog.module6_notification_outbox` e conceder
+SELECT/INSERT/UPDATE à role de runtime. A publicação ativa `source=backlog` e
+adiciona o container `module6-worker`, usando a mesma imagem do serviço e somente
+as configurações necessárias para seu próprio schema. Esse worker não recebe
+tráfego HTTP e roda o CLI de entrega. A réplica mínima do Backlog passa de zero
+para um para que a fila continue sendo processada sem visitas ao site; há aumento
+de recursos em execução (worker de 0,25 vCPU/0,5 GiB, além da API).
+
+A fila de Projetos também tem migração aditiva própria. Seu envio permanece
+explicitamente desativado até acordar `MODULE6_SOURCE` com o receptor, pois o
+contrato não tem uma origem própria para Projetos/equipes. Isso não impede
+publicar o código ou usar as notificações internas existentes.
+
+O Bicep de apps descreve o bootstrap e as origens CORS. Depois de ativar recursos
+por release, não reaplique um bootstrap antigo sobre os apps sem incluir sua
+configuração atual de Gemini, segredos e worker. Para atualizações das imagens,
+use o pipeline incremental acima, que preserva os demais recursos.
+
+Confirme no job a imagem por digest, a revisão exata pronta e `/health/ready`.
+Confira novamente as origens de CORS e a chave pública JWKS, sem imprimir tokens,
+segredos ou DSNs. Testes destrutivos continuam reservados a PostgreSQL local.

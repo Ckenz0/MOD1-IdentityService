@@ -6,7 +6,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +42,58 @@ class Settings(BaseSettings):
     ai_api_key: SecretStr | None = None
     ai_model: str = "configured-model"
     ai_simulated: bool = False
+    ai_provider: Literal["structured-http", "gemini"] = "structured-http"
+    gemini_api_key: SecretStr | None = Field(default=None, repr=False)
+    gemini_model: str = Field(
+        default="gemini-3.5-flash-lite", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    )
+    gemini_timeout_seconds: float = Field(default=30, ge=1, le=30)
+    gemini_max_output_tokens: int = Field(default=4096, ge=256, le=8192)
+    gemini_api_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+
+    @field_validator("gemini_api_key")
+    @classmethod
+    def validate_gemini_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and (
+            not value.get_secret_value() or any(c.isspace() for c in value.get_secret_value())
+        ):
+            raise ValueError("Invalid Gemini configuration")
+        return value
+
+    @field_validator("gemini_api_base_url")
+    @classmethod
+    def validate_gemini_url(cls, value: str) -> str:
+        parsed = urlsplit(value)
+        port = parsed.port  # Validate syntax/range for both HTTPS and loopback HTTP.
+        if (
+            parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or "?" in value
+            or "#" in value
+            or "\\" in value
+            or any(c.isspace() for c in value)
+            or parsed.path.rstrip("/") != "/v1beta"
+            or not (
+                (
+                    parsed.scheme == "https"
+                    and parsed.hostname == "generativelanguage.googleapis.com"
+                    and port in (None, 443)
+                )
+                or (
+                    parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost", "::1")
+                )
+            )
+        ):
+            raise ValueError("Use the official Gemini HTTPS endpoint or HTTP loopback /v1beta")
+        return value.rstrip("/")
+
+    @model_validator(mode="after")
+    def validate_gemini_mode(self) -> "Settings":
+        if self.ai_provider == "gemini" and self.ai_simulated:
+            raise ValueError("Gemini cannot be marked as simulated")
+        return self
 
     @field_validator("resend_api_key")
     @classmethod

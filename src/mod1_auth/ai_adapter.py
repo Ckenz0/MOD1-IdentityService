@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from mod1_auth.config import Settings
+from mod1_auth.gemini_adapter import GeminiAdapter
 from mod1_auth.identity_service import IdentityError
 from mod1_auth.recommendations import AnomalyResponse
 
@@ -14,7 +15,21 @@ class AIAdapter:
         self.settings = settings
         self.transport = transport
 
+    @property
+    def provider(self) -> str:
+        return self.settings.ai_provider
+
+    @property
+    def model(self) -> str:
+        return self.settings.gemini_model if self.provider == "gemini" else self.settings.ai_model
+
+    @property
+    def simulated(self) -> bool:
+        return self.provider != "gemini" and self.settings.ai_simulated
+
     def generate(self, context: dict[str, Any]) -> dict[str, Any]:
+        if self.provider == "gemini":
+            return GeminiAdapter(self.settings, self.transport).generate(context)
         if not self.settings.ai_base_url:
             raise IdentityError(503, "Recommendation provider unavailable")
         headers = {"Accept": "application/json"}
