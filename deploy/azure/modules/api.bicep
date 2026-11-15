@@ -13,6 +13,8 @@ param databaseSecretName string
 param databaseSecretUri string
 param jwtIssuer string
 param frontendOrigin string
+@description('Additional approved browser origins; the primary frontend origin is always preserved.')
+param additionalCorsOrigins array = []
 param privateKeySecretUri string = ''
 param projectsApiBaseUrl string = ''
 param authApiBaseUrl string = ''
@@ -103,7 +105,7 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
           { name: 'DATABASE_SCHEMA', value: databaseSchema }
           { name: 'JWT_ISSUER', value: jwtIssuer }
           { name: 'JWT_AUDIENCE', value: 'engenharia-software-api' }
-          { name: 'CORS_ORIGINS', value: string([frontendOrigin]) }
+          { name: 'CORS_ORIGINS', value: string(union([frontendOrigin], additionalCorsOrigins)) }
         ], hasKey ? [
           { name: 'JWT_PRIVATE_KEY_PATH', value: '/mnt/secrets/private-key.pem' }
           { name: 'ACCESS_TOKEN_EXPIRE_MINUTES', value: '30' }

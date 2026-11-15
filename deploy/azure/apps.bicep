@@ -25,6 +25,7 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing =
 var authUrl = 'https://${resourcePrefix}-auth.${environment.properties.defaultDomain}'
 var projectsUrl = 'https://${resourcePrefix}-projects.${environment.properties.defaultDomain}'
 var backlogUrl = 'https://${resourcePrefix}-backlog.${environment.properties.defaultDomain}'
+var additionalCorsOrigins = loadJsonContent('cors-origins.json')
 var services = [
   { name: 'auth', image: authImage, port: 8000, cpu: '0.5', memory: '1Gi', databaseSchema: 'mod1_identity', databaseSecretName: 'identity-database-url', databaseSecretUri: authDatabaseSecretUri }
   { name: 'projects', image: projectsImage, port: 8001, cpu: '0.25', memory: '0.5Gi', databaseSchema: 'projects', databaseSecretName: 'projects-database-url', databaseSecretUri: projectsDatabaseSecretUri }
@@ -49,6 +50,7 @@ module apps 'modules/api.bicep' = [for service in services: {
     databaseSecretUri: service.databaseSecretUri
     jwtIssuer: authUrl
     frontendOrigin: frontendOrigin
+    additionalCorsOrigins: additionalCorsOrigins[service.name]
     privateKeySecretUri: service.name == 'auth' ? jwtKeySecretUri : ''
     authApiBaseUrl: service.name != 'auth' ? authUrl : ''
     backlogApiBaseUrl: service.name == 'projects' ? backlogUrl : ''

@@ -119,11 +119,45 @@ O gerador recusa imagens mutáveis, outro registro, origem não HTTPS e segredo 
 - HTTPS externo para as três APIs, mantendo a autenticação JWT da aplicação.
 - Issuer igual à URL HTTPS estável da identidade e audience `engenharia-software-api`.
 - JWKS da identidade para projetos/backlog; URL de projetos para autorização do backlog.
-- CORS com a origem exata do frontend, sem liberar previews automaticamente.
+- CORS com a origem exata do frontend e as origens adicionais aprovadas por serviço
+  em `deploy/azure/cors-origins.json`, sem liberar previews automaticamente.
 - Zero a uma réplica por API, probes independentes e portas alvo 8000/8001/8002.
 - Identidade em 0,5 vCPU/1 GiB; projetos/backlog em 0,25 vCPU/0,5 GiB, sujeitos à validação real de capacidade.
 
 A propagação inicial de RBAC pode levar algum tempo. Se a revisão não obtiver imagem/segredo, confira o erro nos logs e a atribuição no escopo correto antes de repetir a aplicação; não amplie a permissão para todo o vault como atalho.
+
+### Origens adicionais de navegador — módulos 2 e 7
+
+`deploy/azure/cors-origins.json` registra a origem pública do MackAI (Módulo 7),
+`http://localhost:5173` e a origem informada do serviço GitHub (Módulo 2), nas três
+APIs: Identidade (`auth`), Projetos (`projects`) e Backlog (`backlog`). A origem do Módulo 2 é
+`https://ai-platform-github-service-eduardo-frapb8fbbcd0bfdm.brazilsouth-01.azurewebsites.net`,
+sem a barra final ou caminho.
+O usuário autorizou também a preparação do Backlog para futuros consumidores.
+O módulo Bicep usa `union` para
+preservar `frontendOrigin` e evitar duplicatas; essa origem também continua
+sendo o endereço dos links de e-mail, independentemente do CORS adicional.
+
+Uma atualização operacional de `CORS_ORIGINS` deve combinar a lista existente
+com as origens aprovadas e preservar as demais configurações, imagens e segredos.
+Ela cria uma revisão da configuração da Container App. Confira a revisão pronta,
+saúde e preflights antes de declarar a liberação: `OPTIONS` com `Origin`,
+`Access-Control-Request-Method` e `Access-Control-Request-Headers` deve devolver
+o mesmo `Access-Control-Allow-Origin`, permitir o método e `Authorization`/
+`Content-Type`. Uma origem não aprovada deve continuar sem acesso CORS.
+
+O front MackAI usa `POST /auth/token`, `/auth/mfa/verify`, `/auth/refresh`,
+`/auth/logout`, `GET /auth/me` e `GET /projects`. As chamadas de servidor para
+JWKS, sessão e `/projects/{id}/access/v2` não precisam de CORS e continuam
+exigindo as mesmas regras de autenticação/autorização. Não altere JWT, audiência
+ou permissões para liberar uma origem. Guia do consumidor:
+[integração MackAI](https://github.com/gabrielmarinhorosa/MackAi-Conversa/blob/main/docs/integracao-outros-modulos.md).
+
+O endpoint de notificações do Módulo 6 é uma integração entre backends. Sua chave
+de integração fica em configuração privada do backend emissor, nunca no frontend
+ou na lista de origens. O endereço do BFF receptor não determina a origem do
+frontend do Módulo 6; se este consumir nossas APIs pelo navegador, sua origem
+precisa ser informada separadamente.
 
 ## 7. Publicar o frontend
 
