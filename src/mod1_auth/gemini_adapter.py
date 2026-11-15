@@ -21,6 +21,19 @@ acesso nem invente IDs, pessoas, custos, habilidades ou inatividade ausentes. A 
 eventos relevantes. Summary e justification são obrigatórios. Não execute ferramentas."""
 
 
+def _response_schema(value: Any) -> Any:
+    """Avoid Gemini's bounded-array grammar expansion; validate full limits locally."""
+    if isinstance(value, dict):
+        return {
+            key: _response_schema(child)
+            for key, child in value.items()
+            if not (key == "maxItems" and value.get("type") == "array")
+        }
+    if isinstance(value, list):
+        return [_response_schema(child) for child in value]
+    return value
+
+
 class GeminiAdapter:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.settings = settings
@@ -46,7 +59,7 @@ class GeminiAdapter:
                     "responseFormat": {
                         "text": {
                             "mimeType": "APPLICATION_JSON",
-                            "schema": AnomalyResponse.model_json_schema(),
+                            "schema": _response_schema(AnomalyResponse.model_json_schema()),
                         }
                     },
                 },

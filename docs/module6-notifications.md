@@ -44,3 +44,5 @@ detalhados no OpenAPI consultado e precisam ser tratados sem presumir sucesso.
   escrita, com estado de entrega separado das notificações internas existentes.
 - O primeiro teste real deve usar evento/projeto expressamente autorizados.
   Nenhuma notificação externa foi publicada durante a descoberta deste contrato.
+
+A implementação do emissor e seu catálogo estão nos guias de operação dos repositórios de [Backlog](https://github.com/igorcpds/MOD1-BacklogService/blob/main/docs/module6-notifications.md) e [Projetos](https://github.com/briankfreire/MOD1-ProjectsServices/blob/main/docs/module6-notifications.md). A publicação ativa somente a origem Backlog já aceita; Projetos aguarda a convenção de origem.

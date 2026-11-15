@@ -80,6 +80,46 @@ def test_gemini_request_and_empty_response(settings):
     assert "test-only-key" not in repr(settings) and "gemini_api_key" not in repr(settings)
 
 
+def test_gemini_avoids_bounded_array_schema_rejected_by_provider(settings):
+    def handler(request):
+        schema = json.loads(request.content)["generationConfig"]["responseFormat"]["text"]["schema"]
+        assert '"maxItems"' not in json.dumps(schema)
+        assert schema["properties"]["summary"]["maxLength"] == 2000
+        assert schema["$defs"]["AnomalySuggestion"]["properties"]["evidence_ids"]["minItems"] == 1
+        return httpx.Response(200, json=envelope())
+
+    assert AIAdapter(configure(settings), httpx.MockTransport(handler)).generate({}) == proposal()
+
+
+@pytest.mark.parametrize("field", ["evidence", "suggestions", "evidence_ids"])
+@pytest.mark.parametrize("count", [50, 51])
+def test_gemini_keeps_local_array_limits(settings, field, count):
+    identifier = "00000000-0000-4000-8000-000000000001"
+    suggestion = {
+        "user_id": identifier,
+        "action": "review_access",
+        "reason": "Observed event",
+        "evidence_ids": [identifier],
+    }
+    result = proposal()
+    if field == "evidence_ids":
+        result["suggestions"] = [{**suggestion, "evidence_ids": [identifier] * count}]
+    else:
+        result[field] = [identifier if field == "evidence" else suggestion] * count
+    adapter = AIAdapter(
+        configure(settings),
+        httpx.MockTransport(lambda _: httpx.Response(200, json=envelope(result))),
+    )
+    if count == 51:
+        with pytest.raises(IdentityError) as error:
+            adapter.generate({})
+        assert error.value.status == 503
+    else:
+        assert len(adapter.generate({})["suggestions" if field == "evidence_ids" else field]) == (
+            1 if field == "evidence_ids" else count
+        )
+
+
 @pytest.mark.parametrize(
     "change",
     [

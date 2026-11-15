@@ -284,3 +284,40 @@ pelos três serviços; startup não executa DDL.
 - [SWA Free](https://learn.microsoft.com/en-us/azure/static-web-apps/plans), [upload sem build](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration).
 - [OIDC GitHub/Azure](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect), [orçamentos](https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/tutorial-acm-create-budgets).
 - [TLS no Neon](https://neon.com/docs/connect/connect-securely).
+
+
+## Publicação de Gemini e notificações
+
+O workflow de publicação aplica `scripts/azure_runtime_config.py` após construir
+uma imagem imutável e passar nas verificações. O patch é restrito ao próprio app:
+segredos existentes, referências Key Vault, CORS, ingress, identidades, volumes
+RSA e configuração de autenticação são preservados. O helper aborta se detectar
+containers inesperados ou mudanças concorrentes na configuração.
+
+Configure `GEMINI_API_KEY` como secret do Environment `demo` nas três APIs.
+A publicação seleciona `AI_PROVIDER=gemini`, `AI_SIMULATED=false` e o modelo
+configurado pelo serviço. Na Identidade, `RESEND_FROM` usa o domínio verificado;
+MFA e a chave RSA continuam com seus valores e montagens existentes.
+
+No Backlog, configure também `MODULE6_KEY` como secret de `demo`, depois de criar
+explicitamente a tabela `backlog.module6_notification_outbox` e conceder
+SELECT/INSERT/UPDATE à role de runtime. A publicação ativa `source=backlog` e
+adiciona o container `module6-worker`, usando a mesma imagem do serviço e somente
+as configurações necessárias para seu próprio schema. Esse worker não recebe
+tráfego HTTP e roda o CLI de entrega. A réplica mínima do Backlog passa de zero
+para um para que a fila continue sendo processada sem visitas ao site; há aumento
+de recursos em execução (worker de 0,25 vCPU/0,5 GiB, além da API).
+
+A fila de Projetos também tem migração aditiva própria. Seu envio permanece
+explicitamente desativado até acordar `MODULE6_SOURCE` com o receptor, pois o
+contrato não tem uma origem própria para Projetos/equipes. Isso não impede
+publicar o código ou usar as notificações internas existentes.
+
+O Bicep de apps descreve o bootstrap e as origens CORS. Depois de ativar recursos
+por release, não reaplique um bootstrap antigo sobre os apps sem incluir sua
+configuração atual de Gemini, segredos e worker. Para atualizações das imagens,
+use o pipeline incremental acima, que preserva os demais recursos.
+
+Confirme no job a imagem por digest, a revisão exata pronta e `/health/ready`.
+Confira novamente as origens de CORS e a chave pública JWKS, sem imprimir tokens,
+segredos ou DSNs. Testes destrutivos continuam reservados a PostgreSQL local.

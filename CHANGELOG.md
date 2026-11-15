@@ -1,8 +1,10 @@
 # Changelog
 
-## 0.5.0 — candidato local, 2026-11-03
+## 0.5.0 — 2026-11-15
 
 ### Added
+
+- Pipeline incremental com segredo Gemini, remetente no domínio verificado e preservação das origens CORS dos outros módulos.
 
 - Provedor Gemini opt-in para análise de acessos, com resposta JSON estruturada,
   contexto limitado e transporte sem retries, ferramentas ou fallback. O padrão
@@ -11,8 +13,8 @@
   fundamentada; aprovação vazia retorna 409 sem efeitos. Aprovação permanece
   humana e nunca concede/revoga acesso automaticamente.
 - Testes HTTP controlados para contrato, falhas, segurança e persistência. Veja
-  [configuração Gemini e limites da validação](docs/gemini.md). Nenhuma chamada
-  real ao Gemini foi executada nesta entrega; sem push, merge ou deploy.
+  [configuração Gemini e limites da validação](docs/gemini.md). O adaptador também foi
+  verificado com Gemini real; a validação completa dos fluxos continua por cenário.
 
 ### Security
 

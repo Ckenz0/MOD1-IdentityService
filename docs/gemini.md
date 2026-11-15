@@ -93,9 +93,24 @@ próprio, sem herdar autenticação, cookies ou headers de clientes dos consumid
 
 Testes PostgreSQL só devem receber um `TEST_DATABASE_URL` de loopback descartável;
 sem essa configuração ficam explicitamente ignorados. Não usar Neon ou outro
-banco remoto. Não houve validação de modelo, latência ou quotas Gemini reais:
-ela permanece pendente e deve usar apenas dados sintéticos, orçamento limitado
-e configuração privada quando autorizada no ambiente de teste.
+banco remoto. A rodada de 03/11 não incluiu chamadas reais; a verificação
+autorizada posterior está registrada abaixo.
+
+## Compatibilidade e chamada real — 14/11/2026
+
+O schema completo com limites `maxItems` retornou HTTP 400 na API real. Omitir
+apenas esse limite dos arrays, com o mesmo modelo e contexto, produziu HTTP 200.
+O adaptador agora envia uma cópia do schema sem `maxItems`, inclusive em arrays
+aninhados. Tipos, campos obrigatórios, enums, mínimos e limites de texto são
+preservados. O modelo Pydantic original continua validando todos os limites na
+resposta; os testes aceitam 50 elementos e recusam 51, inclusive em evidências
+aninhadas. Os 49 testes Gemini passaram, com regressão observada antes da correção.
+
+Uma chamada real com `gemini-3.5-flash-lite`, usuários e eventos sintéticos vazios
+retornou HTTP 200 e resposta válida sem sugestões ou evidências inventadas.
+Nenhum banco foi aberto ou conta alterada. Isso comprova o transporte desse
+cenário, sem validar todas as US de IA, qualidade geral ou disponibilidade futura.
+Os processos de demonstração e a configuração Azure foram preservados.
 
 Contrato oficial: [GenerateContent](https://ai.google.dev/api/generate-content),
 [modelo](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) e
