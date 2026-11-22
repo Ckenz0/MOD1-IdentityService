@@ -1,0 +1,10 @@
+Arquitetura final do Módulo 1
+
+Cinco diagramas PNG em 3840 × 2160 pixels (16:9).
+01: visão geral; 02: Identidade; 03: Projetos; 04: Backlog; 05: Frontend.
+Os arquivos SVG editáveis estão em fontes-svg/. O ZIP contém os cinco PNGs.
+
+Base: releases Identidade 0.4.0, Projetos 0.5.0, Backlog 0.4.0 e Frontend 0.5.0.
+Multicamadas pragmática: aplicação pode usar repositórios concretos; domínio independente de HTTP e banco.
+IA real e integração externa de revisão permanecem pendentes; Resend usa remetente de teste.
+A figura geral é de execução; figuras internas mostram responsabilidades e dependências.
