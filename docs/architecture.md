@@ -4,6 +4,11 @@ O sistema integrado usa microsserviços; este repositório implementa a Identida
 com arquitetura multicamadas pragmática. Os módulos permanecem na estrutura
 atual, com responsabilidades e dependências verificadas por testes.
 
+Os [cinco diagramas históricos do módulo](architecture-history/versions-0.4-0.5/README.md)
+estão disponíveis em PNG e SVG, com um ZIP para download. Eles retratam as
+versões 0.4.0/0.5.0 e não incluem as integrações posteriores. Esta documentação
+descreve a arquitetura atual da Identidade.
+
 ```mermaid
 flowchart TD
     Browser[Frontend e consumidores] --> API[api.py e identity_api.py: apresentação HTTP]
