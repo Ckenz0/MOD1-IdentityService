@@ -1,5 +1,9 @@
 # MVP local com Neon PostgreSQL
 
+O procedimento Neon abaixo é histórico. A produção usa PostgreSQL exclusivo na Azure desde 23/11/2026,
+recuperado do backup de 16/11. Consulte o [guia atual do banco](database-azure-postgresql.md).
+Preserve os UUIDs da cópia e use somente o DSN Azure privado nos deploys atuais.
+
 ## Atualização local 0.3.0
 
 Preparar a tabela profiles explicitamente com `init` administrativo e conceder

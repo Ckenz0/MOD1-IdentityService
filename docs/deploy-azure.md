@@ -1,6 +1,8 @@
-# Deploy do MVP na Azure com Neon
+# Deploy do Módulo 1 na Azure
 
-Este guia publica frontend e três APIs com custo orientado à demonstração: Static Web Apps Free, Container Apps Consumption com zero a uma réplica, ACR Basic, Key Vault e Log Analytics. O PostgreSQL continua no Neon. Os serviços e usuários mantêm seus dados; cada API usa seu próprio schema e papel runtime.
+A migração de 23/11/2026 recupera o backup de 16/11; registros posteriores não estão incluídos. Os endpoints permanecem iguais. [Banco e recuperação](database-azure-postgresql.md).
+
+Este guia publica frontend e três APIs com custo orientado à demonstração: Static Web Apps Free, Container Apps Consumption com zero a uma réplica, ACR Basic, Key Vault e Log Analytics. O PostgreSQL de produção usa [Azure Database for PostgreSQL Flexible Server](database-azure-postgresql.md), exclusivo do Módulo 1. Cada API usa seu próprio schema e papel runtime; a recuperação cobre os dados da cópia indicada acima.
 
 A infraestrutura e os workflows estão preparados para validação e publicação. Compilação Bicep e testes locais não comprovam deploy Azure. As imagens precisam passar pelo build/smoke do CI; nenhuma disponibilidade pública é presumida.
 
@@ -49,11 +51,11 @@ az deployment group create --name mod1-bootstrap --resource-group $resourceGroup
 
 O bootstrap cria somente recursos compartilhados: environment Consumption, ACR Basic, Key Vault, três identidades com AcrPull, SWA Free, logs e orçamento. Não cria APIs com imagens fictícias. Anote os outputs `registryName`, `vaultName`, `environmentName`, `frontendName`, `frontendOrigin` e `apiUrls`. Os nomes globais de ACR e Key Vault são derivados do Resource Group.
 
-## 3. Conferir o Neon e cadastrar os segredos
+## 3. Conferir o PostgreSQL e cadastrar os segredos
 
-Preserve o Neon existente. Confira tabelas e permissões pelo [guia do banco](database-neon.md) e pelos guias dos serviços de projetos e backlog. Runtime usa somente os schemas `mod1_identity`, `projects` e `backlog`, com credenciais distintas. A preparação administrativa é explícita; as APIs não criam tabelas no startup.
+Preserve o Neon existente. Confira tabelas e permissões pelo [guia do banco Azure](database-azure-postgresql.md) e pelos guias dos serviços de projetos e backlog. Runtime usa somente os schemas `mod1_identity`, `projects` e `backlog`, com credenciais distintas. A preparação administrativa é explícita; as APIs não criam tabelas no startup.
 
-Cada DSN de produção deve usar `postgresql+psycopg://`, senha codificada para URI, `sslmode=verify-full` e `sslrootcert=/etc/ssl/certs/ca-certificates.crt`. O caminho é o do container Linux, não o caminho Windows. A conexão direta basta para o pool inicial: até seis conexões estáveis de aplicação, com margem adicional para rollout e administração. Confira o limite real do Neon.
+Cada DSN de produção deve usar `postgresql+psycopg://`, senha codificada para URI, `sslmode=verify-full` e `sslrootcert=/etc/ssl/certs/ca-certificates.crt`. O caminho é o do container Linux, não o caminho Windows. A conexão direta basta para o pool inicial: até dez conexões estáveis das três APIs e dois workers, com margem adicional para rollout e administração. Confira o limite efetivo do PostgreSQL Azure.
 
 O operador precisa de acesso para gravar segredos no vault. As identidades das aplicações recebem leitura por segredo na fase de APIs; não recebem leitura de todo o vault.
 
