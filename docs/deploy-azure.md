@@ -1,6 +1,8 @@
-# Deploy do MVP na Azure com Neon
+# Deploy do Módulo 1 na Azure
 
-Este guia publica frontend e três APIs com custo orientado à demonstração: Static Web Apps Free, Container Apps Consumption com zero a uma réplica, ACR Basic, Key Vault e Log Analytics. O PostgreSQL continua no Neon. Os serviços e usuários mantêm seus dados; cada API usa seu próprio schema e papel runtime.
+A migração de 23/11/2026 recupera o backup de 16/11; registros posteriores não estão incluídos. Os endpoints permanecem iguais. [Banco e recuperação](database-azure-postgresql.md).
+
+Este guia publica frontend e três APIs com custo orientado à demonstração: Static Web Apps Free, Container Apps Consumption com zero a uma réplica, ACR Basic, Key Vault e Log Analytics. O PostgreSQL de produção usa [Azure Database for PostgreSQL Flexible Server](database-azure-postgresql.md), exclusivo do Módulo 1. Cada API usa seu próprio schema e papel runtime; a recuperação cobre os dados da cópia indicada acima.
 
 A infraestrutura e os workflows estão preparados para validação e publicação. Compilação Bicep e testes locais não comprovam deploy Azure. As imagens precisam passar pelo build/smoke do CI; nenhuma disponibilidade pública é presumida.
 
@@ -8,7 +10,7 @@ A infraestrutura e os workflows estão preparados para validação e publicaçã
 
 1. No portal Azure, selecione a assinatura que será usada e confira saldo/créditos, moeda de cobrança e permissões.
 2. Defina o orçamento mensal e o e-mail de alertas. O orçamento gera alertas em 50%, 80% e 100%; não corta automaticamente o consumo.
-3. Confira a região do compute Neon no painel. Escolha uma região Azure próxima com Container Apps Consumption disponível e uma região suportada para o gerenciamento do Static Web Apps. Não é preciso mover o Neon.
+3. O PostgreSQL exclusivo e as APIs estão em Brazil South. Preserve essa proximidade ao planejar mudanças e escolha uma região suportada para o gerenciamento do Static Web Apps. O Neon anterior permanece preservado como origem histórica.
 4. Instale Azure CLI, extensão Container Apps, Bicep, Docker e uv. O CI usa runners Linux; localmente os comandos abaixo são PowerShell. Use os checkouts que contêm o MVP integrado.
 
 O operador de bootstrap precisa criar recursos e atribuir RBAC no Resource Group. Contributor sozinho não permite atribuir papéis: use uma atribuição administrativa adequada ao escopo, sem compartilhar essa permissão com as aplicações.
@@ -49,11 +51,11 @@ az deployment group create --name mod1-bootstrap --resource-group $resourceGroup
 
 O bootstrap cria somente recursos compartilhados: environment Consumption, ACR Basic, Key Vault, três identidades com AcrPull, SWA Free, logs e orçamento. Não cria APIs com imagens fictícias. Anote os outputs `registryName`, `vaultName`, `environmentName`, `frontendName`, `frontendOrigin` e `apiUrls`. Os nomes globais de ACR e Key Vault são derivados do Resource Group.
 
-## 3. Conferir o Neon e cadastrar os segredos
+## 3. Conferir o PostgreSQL e cadastrar os segredos
 
-Preserve o Neon existente. Confira tabelas e permissões pelo [guia do banco](database-neon.md) e pelos guias dos serviços de projetos e backlog. Runtime usa somente os schemas `mod1_identity`, `projects` e `backlog`, com credenciais distintas. A preparação administrativa é explícita; as APIs não criam tabelas no startup.
+Preserve o Neon existente. Confira tabelas e permissões pelo [guia do banco Azure](database-azure-postgresql.md) e pelos guias dos serviços de projetos e backlog. Runtime usa somente os schemas `mod1_identity`, `projects` e `backlog`, com credenciais distintas. A preparação administrativa é explícita; as APIs não criam tabelas no startup.
 
-Cada DSN de produção deve usar `postgresql+psycopg://`, senha codificada para URI, `sslmode=verify-full` e `sslrootcert=/etc/ssl/certs/ca-certificates.crt`. O caminho é o do container Linux, não o caminho Windows. A conexão direta basta para o pool inicial: até seis conexões estáveis de aplicação, com margem adicional para rollout e administração. Confira o limite real do Neon.
+Cada DSN de produção deve usar `postgresql+psycopg://`, senha codificada para URI, `sslmode=verify-full` e `sslrootcert=/etc/ssl/certs/ca-certificates.crt`. O caminho é o do container Linux, não o caminho Windows. A conexão direta basta para o pool inicial: até dez conexões estáveis das três APIs e dois workers, com margem adicional para rollout e administração. Confira o limite efetivo do PostgreSQL Azure.
 
 O operador precisa de acesso para gravar segredos no vault. As identidades das aplicações recebem leitura por segredo na fase de APIs; não recebem leitura de todo o vault.
 
@@ -209,9 +211,9 @@ Preserve issuer, chave RSA e banco. Rollback de imagem não desfaz migração ou
 
 ## 10. Custos e encerramento
 
-APIs suspensas deixam de consumir compute de réplicas, mas ACR, Key Vault, logs, tráfego e Neon têm cobranças próprias. As franquias Azure e o plano Free do SWA não garantem custo total zero. Réplicas máximas e alertas não são um teto financeiro.
+APIs suspensas deixam de consumir compute de réplicas, mas o PostgreSQL Flexible Server, ACR, Key Vault, logs e tráfego têm cobranças próprias. O banco B1ms/32 GB tem estimativa de cerca de US$ 33/mês antes de benefícios e adicionais. As franquias Azure e o plano Free do SWA não garantem custo total zero. Réplicas máximas e alertas não são um teto financeiro.
 
-Ao terminar a demonstração, inventarie os recursos do grupo, preserve chave e informações de recuperação necessárias e remova somente os recursos que decidir encerrar. Excluir o Resource Group também remove o frontend e o registro; o Key Vault tem soft-delete. O Neon é externo e seus dados devem ser preservados. Não use remoção de volumes/schemas como procedimento de deploy.
+Ao terminar a demonstração, inventarie os recursos e encerre somente os componentes escolhidos explicitamente. O PostgreSQL de produção está no mesmo Resource Group: não exclua o grupo enquanto o banco estiver em uso. A exclusão do grupo também elimina o servidor, além de frontend, registro e demais recursos; o soft-delete do Key Vault não protege os dados do PostgreSQL. Antes de qualquer desativação definitiva do banco, preserve uma exportação atual em armazenamento separado e valide sua restauração, junto das chaves e informações de recuperação necessárias. O Neon histórico não contém as gravações feitas depois da migração. Não use remoção de volumes/schemas como procedimento de deploy.
 
 ## Atualização multicamadas: URLs, MFA e Resend
 
@@ -308,10 +310,10 @@ tráfego HTTP e roda o CLI de entrega. A réplica mínima do Backlog passa de ze
 para um para que a fila continue sendo processada sem visitas ao site; há aumento
 de recursos em execução (worker de 0,25 vCPU/0,5 GiB, além da API).
 
-A fila de Projetos também tem migração aditiva própria. Seu envio permanece
-explicitamente desativado até acordar `MODULE6_SOURCE` com o receptor, pois o
-contrato não tem uma origem própria para Projetos/equipes. Isso não impede
-publicar o código ou usar as notificações internas existentes.
+A fila de Projetos também tem migração aditiva própria. O envio dos eventos
+mapeados está ativo em produção, usando `MODULE6_SOURCE=backlog` conforme o
+acordo do Módulo 1. Preserve essa configuração e o worker nas atualizações;
+não reenvie eventos históricos automaticamente.
 
 O Bicep de apps descreve o bootstrap e as origens CORS. Depois de ativar recursos
 por release, não reaplique um bootstrap antigo sobre os apps sem incluir sua
