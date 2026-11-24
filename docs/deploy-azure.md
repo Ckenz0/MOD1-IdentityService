@@ -10,7 +10,7 @@ A infraestrutura e os workflows estão preparados para validação e publicaçã
 
 1. No portal Azure, selecione a assinatura que será usada e confira saldo/créditos, moeda de cobrança e permissões.
 2. Defina o orçamento mensal e o e-mail de alertas. O orçamento gera alertas em 50%, 80% e 100%; não corta automaticamente o consumo.
-3. Confira a região do compute Neon no painel. Escolha uma região Azure próxima com Container Apps Consumption disponível e uma região suportada para o gerenciamento do Static Web Apps. Não é preciso mover o Neon.
+3. O PostgreSQL exclusivo e as APIs estão em Brazil South. Preserve essa proximidade ao planejar mudanças e escolha uma região suportada para o gerenciamento do Static Web Apps. O Neon anterior permanece preservado como origem histórica.
 4. Instale Azure CLI, extensão Container Apps, Bicep, Docker e uv. O CI usa runners Linux; localmente os comandos abaixo são PowerShell. Use os checkouts que contêm o MVP integrado.
 
 O operador de bootstrap precisa criar recursos e atribuir RBAC no Resource Group. Contributor sozinho não permite atribuir papéis: use uma atribuição administrativa adequada ao escopo, sem compartilhar essa permissão com as aplicações.
@@ -211,9 +211,9 @@ Preserve issuer, chave RSA e banco. Rollback de imagem não desfaz migração ou
 
 ## 10. Custos e encerramento
 
-APIs suspensas deixam de consumir compute de réplicas, mas ACR, Key Vault, logs, tráfego e Neon têm cobranças próprias. As franquias Azure e o plano Free do SWA não garantem custo total zero. Réplicas máximas e alertas não são um teto financeiro.
+APIs suspensas deixam de consumir compute de réplicas, mas o PostgreSQL Flexible Server, ACR, Key Vault, logs e tráfego têm cobranças próprias. O banco B1ms/32 GB tem estimativa de cerca de US$ 33/mês antes de benefícios e adicionais. As franquias Azure e o plano Free do SWA não garantem custo total zero. Réplicas máximas e alertas não são um teto financeiro.
 
-Ao terminar a demonstração, inventarie os recursos do grupo, preserve chave e informações de recuperação necessárias e remova somente os recursos que decidir encerrar. Excluir o Resource Group também remove o frontend e o registro; o Key Vault tem soft-delete. O Neon é externo e seus dados devem ser preservados. Não use remoção de volumes/schemas como procedimento de deploy.
+Ao terminar a demonstração, inventarie os recursos e encerre somente os componentes escolhidos explicitamente. O PostgreSQL de produção está no mesmo Resource Group: não exclua o grupo enquanto o banco estiver em uso. A exclusão do grupo também elimina o servidor, além de frontend, registro e demais recursos; o soft-delete do Key Vault não protege os dados do PostgreSQL. Antes de qualquer desativação definitiva do banco, preserve uma exportação atual em armazenamento separado e valide sua restauração, junto das chaves e informações de recuperação necessárias. O Neon histórico não contém as gravações feitas depois da migração. Não use remoção de volumes/schemas como procedimento de deploy.
 
 ## Atualização multicamadas: URLs, MFA e Resend
 
@@ -310,10 +310,10 @@ tráfego HTTP e roda o CLI de entrega. A réplica mínima do Backlog passa de ze
 para um para que a fila continue sendo processada sem visitas ao site; há aumento
 de recursos em execução (worker de 0,25 vCPU/0,5 GiB, além da API).
 
-A fila de Projetos também tem migração aditiva própria. Seu envio permanece
-explicitamente desativado até acordar `MODULE6_SOURCE` com o receptor, pois o
-contrato não tem uma origem própria para Projetos/equipes. Isso não impede
-publicar o código ou usar as notificações internas existentes.
+A fila de Projetos também tem migração aditiva própria. O envio dos eventos
+mapeados está ativo em produção, usando `MODULE6_SOURCE=backlog` conforme o
+acordo do Módulo 1. Preserve essa configuração e o worker nas atualizações;
+não reenvie eventos históricos automaticamente.
 
 O Bicep de apps descreve o bootstrap e as origens CORS. Depois de ativar recursos
 por release, não reaplique um bootstrap antigo sobre os apps sem incluir sua

@@ -43,8 +43,10 @@ TLS. API e worker do mesmo serviço usam a mesma conexão runtime e schema.
 Os pools permanecem com duas conexões, sem overflow: até dez conexões estáveis
 para as três APIs e dois workers, além da margem de rollout/administração.
 
-O firewall permite os IPs de saída anunciados pelo ambiente Container Apps e
-o acesso administrativo controlado. Não existe regra irrestrita ou permissão
+O firewall permite somente os IPs de saída anunciados pelo ambiente Container
+Apps. As regras administrativas temporárias da migração foram removidas;
+qualquer manutenção futura exige uma liberação administrativa específica e temporária.
+Não existe regra irrestrita ou permissão
 genérica a todos os serviços Azure. Revise os IPs ao mudar o ambiente; IP de
 entrada não identifica necessariamente o endereço de saída para o banco.
 
